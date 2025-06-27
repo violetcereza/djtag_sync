@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftyapdatabase",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mickeyl/SwiftYapDatabase.git",
+      "state" : {
+        "revision" : "e1befb00a014fa75721633950e100dddd343f496",
+        "version" : "2.9.0"
+      }
+    }
+  ],
+  "version" : 2
+}
