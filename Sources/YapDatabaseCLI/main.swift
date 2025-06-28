@@ -9,11 +9,15 @@ import SwiftYapDatabase
 struct CommandLineArguments {
     let databasePath: String
     let help: Bool
+    let collectionName: String?
+    let listTracksByBPMWithMetadata: Bool
     
     init() {
         var args = CommandLine.arguments.dropFirst()
         var dbPath: String?
         var showHelp = false
+        var collection: String?
+        var tracksByBPMWithMetadata = false
         
         while let arg = args.first {
             switch arg {
@@ -29,6 +33,18 @@ struct CommandLineArguments {
                     print("Error: Database path required after -d/--database")
                     exit(1)
                 }
+            case "-c", "--collection":
+                args = args.dropFirst()
+                if let name = args.first {
+                    collection = name
+                    args = args.dropFirst()
+                } else {
+                    print("Error: Collection name required after -c/--collection")
+                    exit(1)
+                }
+            case "--tracks-by-bpm-with-metadata":
+                tracksByBPMWithMetadata = true
+                args = args.dropFirst()
             default:
                 if dbPath == nil {
                     dbPath = arg
@@ -42,6 +58,8 @@ struct CommandLineArguments {
         
         self.databasePath = dbPath ?? ""
         self.help = showHelp
+        self.collectionName = collection
+        self.listTracksByBPMWithMetadata = tracksByBPMWithMetadata
     }
 }
 
@@ -92,9 +110,22 @@ class YapDatabaseLister {
             if keys.isEmpty {
                 print("No items found in collection '\(collectionName)'")
             } else {
-                print("Keys in collection '\(collectionName)':")
-                for (index, key) in keys.enumerated() {
-                    print("  \(index + 1). \(key)")
+                print("Keys in collection '\(collectionName)' (showing first 20):")
+                let keysToShow = Array(keys.prefix(20))
+                
+                for (index, key) in keysToShow.enumerated() {
+                    if let object = transaction.object(forKey: key, inCollection: collectionName) {
+                        print("  \(index + 1). Key: \(key)")
+                        print("     Value: \(object)")
+                    } else {
+                        print("  \(index + 1). Key: \(key)")
+                        print("     Value: <nil>")
+                    }
+                    print()
+                }
+                
+                if keys.count > 20 {
+                    print("... and \(keys.count - 20) more items")
                 }
                 print("\nTotal items: \(keys.count)")
             }
@@ -114,12 +145,17 @@ func printUsage() {
         <database-path>    Path to the YapDatabase file
     
     Options:
-        -d, --database <path>  Specify database path (alternative to positional argument)
-        -h, --help             Show this help message
+        -d, --database <path>     Specify database path (alternative to positional argument)
+        -c, --collection <name>   Specify collection name to list details for
+        --tracks-by-bpm-with-metadata
+        -h, --help                Show this help message
     
     Examples:
         swift run YapDatabaseCLI /path/to/database.sqlite
         swift run YapDatabaseCLI -d /path/to/database.sqlite
+        swift run YapDatabaseCLI -c "myCollection" /path/to/database.sqlite
+        swift run YapDatabaseCLI --collection "myCollection" --database /path/to/database.sqlite
+        swift run YapDatabaseCLI --tracks-by-bpm-with-metadata /path/to/database.sqlite
         swift run YapDatabaseCLI --help
     """)
 }
@@ -144,7 +180,14 @@ func main() {
         exit(1)
     }
     
-    lister.listCollections()
+    if let collectionName = args.collectionName {
+        lister.listCollectionDetails(collectionName: collectionName)
+    } else if args.listTracksByBPMWithMetadata {
+        let tracksByBPM = TracksByBPM(databasePath: args.databasePath)
+        tracksByBPM.listTracksByBPMWithMetadata()
+    } else {
+        lister.listCollections()
+    }
 }
 
 // Run the main function
