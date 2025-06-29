@@ -9,3 +9,4 @@ DerivedData/
 .netrc
 TEST djay Media Library.djayMediaLibrary/
 venv/
+.swiftpm/
