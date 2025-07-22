@@ -10,12 +10,14 @@ struct CommandLineArguments {
     let databasePath: String
     let help: Bool
     let collectionName: String?
+    let listMediaWithPlaylists: Bool
     
     init() {
         var args = CommandLine.arguments.dropFirst()
         var dbPath: String?
         var showHelp = false
         var collection: String?
+        var listMedia = false
         
         while let arg = args.first {
             switch arg {
@@ -40,6 +42,9 @@ struct CommandLineArguments {
                     print("Error: Collection name required after -c/--collection")
                     exit(1)
                 }
+            case "-p", "--playlists":
+                listMedia = true
+                args = args.dropFirst()
             default:
                 if dbPath == nil {
                     dbPath = arg
@@ -54,6 +59,7 @@ struct CommandLineArguments {
         self.databasePath = dbPath ?? ""
         self.help = showHelp
         self.collectionName = collection
+        self.listMediaWithPlaylists = listMedia
     }
 }
 
@@ -71,6 +77,7 @@ func printUsage() {
     Options:
         -d, --database <path>     Specify database path (alternative to positional argument)
         -c, --collection <name>   Specify collection name to list details for
+        -p, --playlists           List media items with their playlists
         -h, --help                Show this help message
     
     Examples:
@@ -78,6 +85,8 @@ func printUsage() {
         swift run YapDatabaseCLI -d /path/to/database.sqlite
         swift run YapDatabaseCLI -c "myCollection" /path/to/database.sqlite
         swift run YapDatabaseCLI --collection "myCollection" --database /path/to/database.sqlite
+        swift run YapDatabaseCLI --playlists --database /path/to/database.sqlite
+        swift run YapDatabaseCLI -p /path/to/database.sqlite
         swift run YapDatabaseCLI --help
     """)
 }
@@ -102,7 +111,9 @@ func main() {
         exit(1)
     }
     
-    if let collectionName = args.collectionName {
+    if args.listMediaWithPlaylists {
+        lister.listMediaItemsWithPlaylists()
+    } else if let collectionName = args.collectionName {
         lister.listCollectionDetails(collectionName: collectionName)
     } else {
         lister.listCollections()

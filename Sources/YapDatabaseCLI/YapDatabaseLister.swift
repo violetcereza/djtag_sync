@@ -12,6 +12,7 @@ class YapDatabaseLister {
             print("Error: Could not open database at path: \(path)")
             return nil
         }
+        
         self.database = db
     }
     
@@ -87,19 +88,35 @@ class YapDatabaseLister {
             return parts.last
         }
         
-        // Known field names from djay format
+        // Known field names from djay format - expanded list
         let knownFields = [
             "title", "artist", "album", "genre", "composer", "year", "trackNumber", 
             "albumTrackNumber", "discNumber", "grouping", "comments", "contentType", 
             "file", "originSourceID", "duration", "sampleRate", "bitRate", "titleID", 
             "artistUUIDs", "albumUUID", "genreUUIDs", "labelUUID", "addedDate", 
-            "modifiedDate", "musicalKeySignatureIndex", "uuid"
+            "modifiedDate", "musicalKeySignatureIndex", "uuid", "name", "mediaItemUUID", 
+            "playlistUUID", "playlistItemUUID", "position", "order", "type", "source", 
+            "destination", "relationship", "edge", "node", "collection", "key"
         ]
         
         // Extract values for each known field
         for field in knownFields {
             if let value = valueBefore(field: field) {
                 properties[field] = value
+            }
+        }
+        
+        // Also try to extract any field that looks like a UUID (32 hex characters)
+        let words = asciiString.split(separator: "\0").map { String($0) }.filter { !$0.isEmpty }
+        for word in words {
+            if word.count == 32 && word.allSatisfy({ $0.isHexDigit }) {
+                if properties["uuid"] == nil {
+                    properties["uuid"] = word
+                } else if properties["mediaItemUUID"] == nil {
+                    properties["mediaItemUUID"] = word
+                } else if properties["playlistUUID"] == nil {
+                    properties["playlistUUID"] = word
+                }
             }
         }
         
@@ -203,6 +220,96 @@ class YapDatabaseLister {
                 }
                 print("\nTotal items: \(keys.count)")
             }
+        }
+    }
+    
+    func listMediaItemsWithPlaylists(limit: Int = 20) {
+        let connection = database.newConnection()
+        
+        connection.read { transaction in
+            print("Media Items with their Playlists:")
+            print("=================================")
+            
+            let keys = transaction.allKeys(inCollection: "mediaItems")
+            
+            if keys.isEmpty {
+                print("No media items found in the database.")
+                return
+            }
+            
+            let keysToShow = Array(keys.prefix(limit))
+            var itemCount = 0
+            
+            for (_, key) in keysToShow.enumerated() {
+                itemCount += 1
+                
+                // Get the media item data to extract title, artist, and UUID
+                var title = "Unknown"
+                var artist = "Unknown"
+                var mediaItemUUID: String?
+                
+                if let serializedData = transaction.serializedObject(forKey: key, inCollection: "mediaItems") {
+                    let properties = parseTSAFContentSimple(serializedData)
+                    title = properties["title"] ?? "Unknown"
+                    artist = properties["artist"] ?? "Unknown"
+                    mediaItemUUID = properties["uuid"]
+                }
+                
+                print("\(itemCount). Media Item: \(key)")
+                print("   Title: \(title)")
+                print("   Artist: \(artist)")
+                if let uuid = mediaItemUUID {
+                    print("   UUID: \(uuid)")
+                }
+                
+                // Find playlists by searching mediaItemPlaylistItems collection
+                var playlistNames: [String] = []
+                
+                if let mediaUUID = mediaItemUUID {
+                    // Get all playlist items
+                    let playlistItemKeys = transaction.allKeys(inCollection: "mediaItemPlaylistItems")
+                    
+                    for playlistItemKey in playlistItemKeys {
+                        if let playlistItemData = transaction.serializedObject(forKey: playlistItemKey, inCollection: "mediaItemPlaylistItems") {
+                            let playlistItemProps = parseTSAFContentSimple(playlistItemData)
+                            
+                            // Check if this playlist item references our media item
+                            if playlistItemProps["mediaItemUUID"] == mediaUUID {
+                                if let playlistUUID = playlistItemProps["playlistUUID"] {
+                                    // Find the playlist name
+                                    let playlistKeys = transaction.allKeys(inCollection: "mediaItemPlaylists")
+                                    
+                                    for playlistKey in playlistKeys {
+                                        if let playlistData = transaction.serializedObject(forKey: playlistKey, inCollection: "mediaItemPlaylists") {
+                                            let playlistProps = parseTSAFContentSimple(playlistData)
+                                            
+                                            if playlistProps["uuid"] == playlistUUID {
+                                                if let playlistName = playlistProps["name"] {
+                                                    playlistNames.append(playlistName)
+                                                }
+                                                break
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if !playlistNames.isEmpty {
+                    print("   Playlists: \(playlistNames.joined(separator: ", "))")
+                } else {
+                    print("   Playlists: None found")
+                }
+                
+                print()
+            }
+            
+            if keys.count > limit {
+                print("... and \(keys.count - limit) more media items")
+            }
+            print("\nTotal media items: \(keys.count)")
         }
     }
 } 
