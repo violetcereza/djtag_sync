@@ -1,12 +1,5 @@
 .DS_Store
 .vscode
-/.build
-/Packages
-xcuserdata/
-DerivedData/
-.swiftpm/configuration/registries.json
-.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-.netrc
-TEST djay Media Library.djayMediaLibrary/
-venv/
-.swiftpm/
+djay_integration/.build/*
+djay_integration/TEST djay Media Library.djayMediaLibrary/
+djay_integration/.swiftpm/
