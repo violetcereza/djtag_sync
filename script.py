@@ -116,7 +116,7 @@ def scan_yaml(library_dir):
     return yaml_tracks
 
 
-def write_swinsian_library(library_db_path=DEFAULT_SWINSIAN, yaml_tracks=None):
+def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
     """
     Writes a Swinsian library from a dict of {file_path: tags}.
     """
@@ -124,9 +124,9 @@ def write_swinsian_library(library_db_path=DEFAULT_SWINSIAN, yaml_tracks=None):
     # TODO: write the library
 
     
-def write_yaml(library_dir, tracks, filter_set=None):
+def write_yaml(tracks, library_dir):
     """
-    Writes YAML files for each file_path in tracks. If filter_set is provided, only updates files in that set.
+    Writes YAML files for each file_path in tracks.
     """
     yaml_dir = os.path.join(library_dir, '.djtag')
     # Delete all files in djtag_dir except .gitignore
@@ -140,8 +140,9 @@ def write_yaml(library_dir, tracks, filter_set=None):
                 os.remove(path)
     
     for file_path, tags in tracks.items():
-        if filter_set is not None and file_path not in filter_set:
-            print(f"Skipping {file_path} because it's not in the filter set")
+        if not os.path.commonpath([os.path.abspath(file_path), os.path.abspath(library_dir)]) == \
+            os.path.abspath(library_dir):
+            print(f"Skipping {file_path} because it's not in the library directory")
             continue
 
         rel_path = os.path.relpath(file_path, library_dir)
@@ -207,7 +208,7 @@ def main():
 
     print("Pulling tags from ID3...")
     id3_tracks = scan_music_folder(library_dir)
-    write_yaml(library_dir, id3_tracks)
+    write_yaml(id3_tracks, library_dir)
 
     # print("Committing id3 tags to git...")
     # commit_yaml_to_git(djtag_dir, 'id3')
@@ -219,7 +220,7 @@ def main():
     # Apply the Swinsian mapping to the working tree
     print("Pulling tags from Swinsian...")
     swinsian_tracks = scan_swinsian_library()
-    # write_yaml(library_dir, swinsian_tracks, filter_set=set(id3_tracks.keys()))
+    write_yaml(swinsian_tracks, library_dir)
 
     # print("Committing swinsian tags to git...")
     # commit_yaml_to_git(djtag_dir, 'swinsian')
