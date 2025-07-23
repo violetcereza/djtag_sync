@@ -23,27 +23,27 @@ def save_tags_yaml(folder_path, file_path, tags):
 
 def scan_music_folder(folder_path):
     """
-    Scans a folder for music files and returns a list of dicts:
-    {file: file_path, tags: metadata}
+    Scans a folder for music files and returns a dict:
+    {file_path: tags}
     """
-    id3_data = []
+    id3_data = {}
     for root, _, files in os.walk(folder_path):
         for file in files:
             if is_music_file(file):
                 file_path = os.path.join(root, file)
                 try:
                     tags = EasyID3(file_path)
-                    id3_data.append({'file': file_path, 'tags': dict(tags)})
+                    id3_data[file_path] = dict(tags)
                 except ID3NoHeaderError:
-                    id3_data.append({'file': file_path, 'tags': {}})
+                    id3_data[file_path] = {}
                 except Exception as e:
-                    id3_data.append({'file': file_path, 'error': str(e)})
+                    id3_data[file_path] = {'error': str(e)}
     return id3_data
 
 def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
     """
-    Scans a Swinsian SQLite library and returns a list of dicts:
-    {file: file_path, tags: metadata}
+    Scans a Swinsian SQLite library and returns a dict:
+    {file_path: tags}
     
     # Swinsian 'track' table fields (as of 2024-06):
     # track_id, title, artist, album, genre, composer, year, tracknumber, discnumber, bitrate, 
@@ -54,7 +54,7 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
     """
     import sqlite3
 
-    results = []
+    results = {}
     conn = sqlite3.connect(library_db_path)
     cursor = conn.cursor()
     try:
@@ -64,24 +64,22 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
             row_dict = dict(zip(columns, row))
             file_path = row_dict.get('path', '') or ''  # path includes filename
             tags = {k: [str(v)] for k, v in row_dict.items() if v is not None and k != 'path'}
-            results.append({'file': file_path, 'tags': tags})
+            results[file_path] = tags
     finally:
         conn.close()
     return results
 
 
-def commit_djtag_to_git(library_dir):
+def commit_djtag_to_git(djtag_dir, source):
     """
     Stages and commits all changes in the .djtag directory to git.
     """
-    import subprocess
-    djtag_dir = os.path.join(library_dir, '.djtag')
 
     try:
         # Stage all changes in .djtag
         subprocess.run(['git', 'add', djtag_dir], cwd=djtag_dir, check=True)
         # Commit with a message
-        subprocess.run(['git', 'commit', '-m', 'djtag: update from ID3'], cwd=djtag_dir, check=True)
+        subprocess.run(['git', 'commit', '-m', f'djtag: update from {source}'], cwd=djtag_dir, check=True)
         print("Committed .djtag folder to git.")
     except subprocess.CalledProcessError as e:
         print(f"Git commit failed: {e}")
@@ -96,27 +94,44 @@ def main():
     
     args = parser.parse_args()
     library_dir = os.path.expanduser(args.folder)
-
-    print("Pulling tags from ID3...")
-    id3_tracks = scan_music_folder(library_dir)
-    for track in id3_tracks:
-        save_tags_yaml(library_dir, track['file'], track['tags'])
-        print(f"-  {os.path.relpath(track['file'], library_dir)}")
+    djtag_dir = os.path.join(library_dir, '.djtag')
 
     # TODO: check that git repo is set up with .gitignore
 
-    # Git commit the .djtag folder
+    try:
+        original_commit = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=djtag_dir
+        ).decode('utf-8').strip()
+        print(f"Current git HEAD hash: {original_commit}")
+    except Exception as e:
+        print(f"Could not get git HEAD hash: {e}")
+
+    print("Pulling tags from ID3...")
+    id3_tracks = scan_music_folder(library_dir)
+    for file_path, tags in id3_tracks.items():
+        save_tags_yaml(library_dir, file_path, tags)
+        print(f"♫  {os.path.relpath(file_path, library_dir)}")
+
     print("Committing .djtag folder to git...")
-    commit_djtag_to_git(library_dir)
-    
+    commit_djtag_to_git(djtag_dir, 'ID3')
+
+    # Git checkout HEAD^ 
+    print(f"Checking out original_commit...")
+    subprocess.run(['git', 'checkout', original_commit], cwd=djtag_dir, check=True)
+
+    # Apply the Swinsian mapping to the working tree
     print("Pulling tags from Swinsian...")
     swinsian_tracks = scan_swinsian_library()
-    for track in swinsian_tracks:
-        if track['file'] in id3_tracks:
-            save_tags_yaml(library_dir, track['file'], track['tags'])
-            print(f"-  {os.path.relpath(track['file'], library_dir)}")
-        # else:
-        #     print(f"No ID3 tags found for {track['file']}")
+    for file_path, tags in swinsian_tracks.items():
+        if file_path in id3_tracks:
+            save_tags_yaml(library_dir, file_path, tags)
+            print(f"♫  {os.path.relpath(file_path, library_dir)}")
+        else:
+            print(f"No ID3 tags found for {file_path}")
+
+    print("Committing .djtag folder to git...")
+    commit_djtag_to_git(djtag_dir, 'Swinsian')
 
     # TODO: merge the commits
     # TODO: push the changes to the remote repo
