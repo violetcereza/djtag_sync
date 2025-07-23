@@ -51,10 +51,47 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
     try:
         cursor.execute("SELECT * FROM track")
         columns = [desc[0] for desc in cursor.description]
-        for row in cursor.fetchall():
-            row_dict = dict(zip(columns, row))
-            file_path = row_dict.get('path', '') or ''  # path includes filename
-            tags = {k: [str(v)] for k, v in row_dict.items() if v is not None and k != 'path'}
+        track_rows = cursor.fetchall()
+
+        # Build track_id -> file_path and row_dict
+        trackid_to_path = {}
+        path_to_tagdict = {}
+        for row in track_rows:
+            tag_dict = dict(zip(columns, row))
+            file_path = tag_dict.get('path', '') or ''
+            track_id = tag_dict.get('track_id')
+            trackid_to_path[track_id] = file_path
+            path_to_tagdict[file_path] = tag_dict
+
+        # Get all playlist names
+        cursor.execute("SELECT playlist_id, name FROM playlist")
+        playlist_id_to_name = {pid: name for pid, name in cursor.fetchall()}
+
+       # Get all playlist-track associations
+        cursor.execute("SELECT playlist_id, track_id FROM playlisttrack")
+        playlisttrack_rows = cursor.fetchall()
+
+        # Build track_id -> list of playlist names
+        from collections import defaultdict
+        trackid_to_playlists = defaultdict(list)
+        for playlist_id, track_id in playlisttrack_rows:
+            name = playlist_id_to_name.get(playlist_id)
+            if name and track_id in trackid_to_path:
+                trackid_to_playlists[track_id].append(name)
+
+        # Now build results
+        for track_id, file_path in trackid_to_path.items():
+            tag_dict = path_to_tagdict[file_path]
+            # Format the tags as a dict of lists of strings
+            tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None and k != 'path'}
+            # Add playlists to genre tag
+            playlists = trackid_to_playlists.get(track_id, [])
+            if playlists:
+                if 'genre' in tags:
+                    # Append playlists to genre list
+                    tags['genre'] = tags['genre'] + playlists
+                else:
+                    tags['genre'] = playlists
             results[file_path] = tags
     finally:
         conn.close()
@@ -142,7 +179,7 @@ def main():
     update_yaml(library_dir, id3_tracks)
 
     print("Committing id3 tags to git...")
-    commit_djtag_to_git(djtag_dir, 'id3')
+    # commit_djtag_to_git(djtag_dir, 'id3')
 
     # # Git checkout HEAD^ 
     # print(f"Checking out original_commit...")
@@ -154,7 +191,7 @@ def main():
     update_yaml(library_dir, swinsian_tracks, filter_set=set(id3_tracks.keys()))
 
     print("Committing swinsian tags to git...")
-    commit_djtag_to_git(djtag_dir, 'swinsian')
+    # commit_djtag_to_git(djtag_dir, 'swinsian')
 
     # TODO: merge the commits
     # TODO: push the changes to the remote repo
