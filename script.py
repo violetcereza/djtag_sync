@@ -13,6 +13,13 @@ DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Li
 def is_music_file(filename):
     return any(filename.lower().endswith(ext) for ext in MUSIC_EXTENSIONS)
 
+def clean_genre_list(genre_list):
+    """
+    Split genre strings on commas, remove duplicates, and sort alphabetically
+    """
+    genre_split = [g.strip() for genre in genre_list for g in genre.split(',')]
+    return sorted(set(genre_split))
+
 def scan_music_folder(folder_path):
     """
     Scans a folder for music files and returns a dict:
@@ -26,6 +33,8 @@ def scan_music_folder(folder_path):
                 try:
                     tags = dict(EasyID3(file_path))
                     tags['path'] = [file_path]
+                    if 'genre' in tags:
+                        tags['genre'] = clean_genre_list(tags['genre'])
                     id3_data[file_path] = tags
                 except ID3NoHeaderError:
                     id3_data[file_path] = {'path': [file_path]}
@@ -94,7 +103,8 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
             else:
                 tags['genre'] = playlists
             # Only sync genre tags
-            tags = {'path': [file_path], 'genre': tags['genre']}
+            genre_list = clean_genre_list(tags['genre'])
+            tags = {'path': [file_path], 'genre': genre_list}
             results[file_path] = tags
     finally:
         conn.close()
@@ -123,7 +133,7 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
     If the playlist does not exist, create it. If the playlist-track association does not exist, create it.
     Remove any playlisttrack associations for that track that are not in its genre list.
     Also ensure every playlist is present in the topplaylist table so it shows up in Swinsian.
-    Does not remove any playlists themselves.
+    Remove playlists (and their topplaylist entries) that are not referenced by any track's genre tag.
     """
     import sqlite3
     conn = sqlite3.connect(library_db_path)
@@ -143,6 +153,7 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
         max_pid = cursor.fetchone()[0] or 0
         next_pid = max_pid + 1
         # For each track, for each genre, ensure association
+        used_playlist_ids = set()
         for file_path, tags in tracks.items():
             track_id = path_to_trackid.get(file_path)
             if not track_id:
@@ -165,6 +176,7 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
                 else:
                     pid = playlist_name_to_id[genre]
                 genre_pids.add(pid)
+                used_playlist_ids.add(pid)
                 # Ensure association exists
                 if (pid, track_id) not in playlisttrack_set:
                     cursor.execute(
@@ -188,13 +200,19 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
         next_topplaylist_id = (max_topplaylist_id or 0) + 1
         next_pindex = (max_pindex or 0) + 1
         for pid in set(playlist_name_to_id.values()):
-            if pid not in topplaylist_pids:
+            if pid not in topplaylist_pids and pid in used_playlist_ids:
                 cursor.execute(
                     "INSERT INTO topplaylist (topplaylist_id, pindex, playlist_id) VALUES (?, ?, ?)",
                     (next_topplaylist_id, next_pindex, pid)
                 )
                 next_topplaylist_id += 1
                 next_pindex += 1
+        # Remove playlists and topplaylist entries not used
+        all_playlist_ids = set(playlist_name_to_id.values())
+        unused_playlist_ids = all_playlist_ids - used_playlist_ids
+        for pid in unused_playlist_ids:
+            cursor.execute("DELETE FROM topplaylist WHERE playlist_id = ?", (pid,))
+            cursor.execute("DELETE FROM playlist WHERE playlist_id = ?", (pid,))
         conn.commit()
     finally:
         conn.close()
