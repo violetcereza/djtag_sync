@@ -6,7 +6,7 @@ import subprocess
 
 MUSIC_EXTENSIONS = ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.aac']
 DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Library.sqlite')
-DEFAULT_SERATO = os.path.expanduser('~/Music/_Serato_/Subcrates')
+# DEFAULT_SERATO = os.path.expanduser('~/Music/_Serato_/Subcrates')
 
 def is_music_file(filename):
     return any(filename.lower().endswith(ext) for ext in MUSIC_EXTENSIONS)
@@ -44,6 +44,13 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
     """
     Scans a Swinsian SQLite library and returns a list of dicts:
     {file: file_path, tags: metadata}
+    
+    # Swinsian 'track' table fields (as of 2024-06):
+    # track_id, title, artist, album, genre, composer, year, tracknumber, discnumber, bitrate, 
+    # bitdepth, samplerate, channels, length, dateadded, lastplayed, playcount, rating, filesize, 
+    # enabled, cue, gapless, compilation, encoder, path, filename, comment, properties_id, 
+    # albumartist, totaldiscnumber, datecreated, grouping, bpm, publisher, totaltracknumber, 
+    # description, datemodified, catalognumber, conductor, discsubtitle, lyrics, copyright
     """
     import sqlite3
 
@@ -51,28 +58,12 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
     conn = sqlite3.connect(library_db_path)
     cursor = conn.cursor()
     try:
-        # Swinsian's main table is usually 'tracks'
-        cursor.execute("SELECT location, title, artist, album, genre, year, track, disc, comment, bpm FROM tracks")
+        cursor.execute("SELECT * FROM track")
+        columns = [desc[0] for desc in cursor.description]
         for row in cursor.fetchall():
-            location, title, artist, album, genre, year, track, disc, comment, bpm = row
-            # Swinsian stores file URLs as 'file://...'
-            if location and location.startswith('file://'):
-                # Convert file URL to path
-                from urllib.parse import unquote, urlparse
-                parsed = urlparse(location)
-                file_path = unquote(parsed.path)
-            else:
-                file_path = location or ""
-            tags = {}
-            if title: tags['title'] = [title]
-            if artist: tags['artist'] = [artist]
-            if album: tags['album'] = [album]
-            if genre: tags['genre'] = [genre]
-            if year: tags['date'] = [str(year)]
-            if track: tags['tracknumber'] = [str(track)]
-            if disc: tags['discnumber'] = [str(disc)]
-            if comment: tags['comment'] = [comment]
-            if bpm: tags['bpm'] = [str(bpm)]
+            row_dict = dict(zip(columns, row))
+            file_path = row_dict.get('path', '') or ''  # path includes filename
+            tags = {k: [str(v)] for k, v in row_dict.items() if v is not None and k != 'path'}
             results.append({'file': file_path, 'tags': tags})
     finally:
         conn.close()
@@ -98,11 +89,13 @@ def commit_djtag_to_git(library_dir):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='Scan a folder for music files and aggregate ID3 data.')
-    parser.add_argument('folder', help='Path to the folder to scan')
+    parser = argparse.ArgumentParser(
+        description='Scan a folder for music files and aggregate ID3 data.')
+    parser.add_argument('--folder', help='Path to the folder to scan', 
+        default='~/Dropbox/Cloud Music/Testing DJ Library')
     
     args = parser.parse_args()
-    library_dir = args.folder
+    library_dir = os.path.expanduser(args.folder)
 
     print("Pulling tags from ID3...")
     id3_tracks = scan_music_folder(library_dir)
@@ -119,8 +112,11 @@ def main():
     print("Pulling tags from Swinsian...")
     swinsian_tracks = scan_swinsian_library()
     for track in swinsian_tracks:
-        save_tags_yaml(library_dir, track['file'], track['tags'])
-        print(f"-  {os.path.relpath(track['file'], library_dir)}")
+        if track['file'] in id3_tracks:
+            save_tags_yaml(library_dir, track['file'], track['tags'])
+            print(f"-  {os.path.relpath(track['file'], library_dir)}")
+        # else:
+        #     print(f"No ID3 tags found for {track['file']}")
 
     # TODO: merge the commits
     # TODO: push the changes to the remote repo
