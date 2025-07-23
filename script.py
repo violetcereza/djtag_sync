@@ -94,16 +94,16 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
         for track_id, file_path in trackid_to_path.items():
             tag_dict = path_to_tagdict[file_path]
             # Format the tags as a dict of lists of strings
-            tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None}
+            # tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None}
             # Add playlists to genre tag
             playlists = trackid_to_playlists.get(track_id, [])
-            if 'genre' in tags:
-                # Append playlists to genre list
-                tags['genre'] = tags['genre'] + playlists
-            else:
-                tags['genre'] = playlists
+            # if 'genre' in tags:
+            #     # Append playlists to genre list
+            #     tags['genre'] = tags['genre'] + playlists
+            # else:
+            #     tags['genre'] = playlists
             # Only sync genre tags
-            genre_list = clean_genre_list(tags['genre'])
+            genre_list = clean_genre_list(playlists)
             tags = {'path': [file_path], 'genre': genre_list}
             results[file_path] = tags
     finally:
@@ -159,6 +159,9 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
             if not track_id:
                 continue
             genres = set(tags.get('genre', []))
+            # Update the genre field in the tracks table with a comma-separated version of the genres
+            genre_str = ', '.join(sorted(genres))
+            cursor.execute("UPDATE track SET genre = ? WHERE track_id = ?", (genre_str, track_id))
             # Ensure all genre playlists exist and associations are present
             genre_pids = set()
             for genre in genres:
@@ -216,6 +219,41 @@ def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
         conn.commit()
     finally:
         conn.close()
+
+def write_music_folder(tracks, library_dir):
+    """
+    For each track, if the file is in library_dir, write the genre tag (comma-separated string) to the ID3 tag.
+    """
+    import os
+    for file_path, tags in tracks.items():
+        abs_file_path = os.path.abspath(file_path)
+        abs_library_dir = os.path.abspath(library_dir)
+        # Check if file exists and is within library_dir
+        if not os.path.isfile(abs_file_path):
+            print(f"File does not exist: {file_path}")
+            continue
+        if not os.path.commonpath([abs_file_path, abs_library_dir]) == abs_library_dir:
+            print(f"Skipping {file_path} (not in library_dir)")
+            continue
+        genres = tags.get('genre', [])
+        genre_str = ', '.join(genres)
+        try:
+            id3_tags = EasyID3(abs_file_path)
+        except Exception:
+            # If no ID3 header, try to add one
+            try:
+                id3_tags = EasyID3()
+                id3_tags.save(abs_file_path)
+                id3_tags = EasyID3(abs_file_path)
+            except Exception as e:
+                print(f"Could not open or create ID3 for {file_path}: {e}")
+                continue
+        id3_tags['genre'] = genre_str
+        try:
+            id3_tags.save()
+            print(f"Updated genre for {file_path} -> {genre_str}")
+        except Exception as e:
+            print(f"Failed to save ID3 for {file_path}: {e}")
 
 
 def write_yaml(tracks, library_dir):
@@ -291,33 +329,17 @@ def main():
 
     # TODO: check that git repo is set up with .gitignore
 
-    # try:
-    #     original_commit = subprocess.check_output(
-    #         ['git', 'rev-parse', 'HEAD'],
-    #         cwd=djtag_dir
-    #     ).decode('utf-8').strip()
-    #     print(f"Current git HEAD hash: {original_commit}")
-    # except Exception as e:
-    #     print(f"Could not get git HEAD hash: {e}")
-
-    print("Pulling tags from ID3...")
-    id3_tracks = scan_music_folder(library_dir)
-    write_yaml(id3_tracks, library_dir)
-
+    # print("Pulling tags from ID3...")
+    # id3_tracks = scan_music_folder(library_dir)
+    # write_yaml(id3_tracks, library_dir)
     # print("Committing id3 tags to git...")
     # commit_yaml_to_git(djtag_dir, 'id3')
 
-    # # Git checkout HEAD^ 
-    # print(f"Checking out original_commit...")
-    # subprocess.run(['git', 'checkout', original_commit], cwd=djtag_dir, check=True)
-
-    # Apply the Swinsian mapping to the working tree
     print("Pulling tags from Swinsian...")
     swinsian_tracks = scan_swinsian_library()
     write_yaml(swinsian_tracks, library_dir)
-
-    # print("Committing swinsian tags to git...")
-    # commit_yaml_to_git(djtag_dir, 'swinsian')
+    print("Committing swinsian tags to git...")
+    commit_yaml_to_git(djtag_dir, 'swinsian')
 
     # TODO: git_merge_id3_swinsian()
     
@@ -325,6 +347,8 @@ def main():
     yaml_tracks = scan_yaml(library_dir)
     print("Writing Swinsian library...")
     write_swinsian_library(yaml_tracks)
+    # print("Writing id3 tags in music folder...")
+    # write_music_folder(yaml_tracks, library_dir)
 
 if __name__ == '__main__':
     main() 
