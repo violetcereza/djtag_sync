@@ -88,12 +88,13 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
             tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None}
             # Add playlists to genre tag
             playlists = trackid_to_playlists.get(track_id, [])
-            if playlists:
-                if 'genre' in tags:
-                    # Append playlists to genre list
-                    tags['genre'] = tags['genre'] + playlists
-                else:
-                    tags['genre'] = playlists
+            if 'genre' in tags:
+                # Append playlists to genre list
+                tags['genre'] = tags['genre'] + playlists
+            else:
+                tags['genre'] = playlists
+            # Only sync genre tags
+            tags = {'path': [file_path], 'genre': tags['genre']}
             results[file_path] = tags
     finally:
         conn.close()
@@ -118,21 +119,96 @@ def scan_yaml(library_dir):
 
 def write_swinsian_library(tracks, library_db_path=DEFAULT_SWINSIAN):
     """
-    Writes a Swinsian library from a dict of {file_path: tags}.
+    For each track, for each genre tag, ensure the track is in a playlist of the same name.
+    If the playlist does not exist, create it. If the playlist-track association does not exist, create it.
+    Remove any playlisttrack associations for that track that are not in its genre list.
+    Also ensure every playlist is present in the topplaylist table so it shows up in Swinsian.
+    Does not remove any playlists themselves.
     """
+    import sqlite3
+    conn = sqlite3.connect(library_db_path)
+    cursor = conn.cursor()
+    try:
+        # Get all playlists and build name->id mapping
+        cursor.execute("SELECT playlist_id, name FROM playlist")
+        playlist_name_to_id = {name: pid for pid, name in cursor.fetchall()}
+        # Get all tracks and build path->track_id mapping
+        cursor.execute("SELECT track_id, path FROM track")
+        path_to_trackid = {path: tid for tid, path in cursor.fetchall()}
+        # Get all playlisttrack associations as a set of (playlist_id, track_id)
+        cursor.execute("SELECT playlist_id, track_id FROM playlisttrack")
+        playlisttrack_set = set(cursor.fetchall())
+        # Find max playlist_id for new inserts
+        cursor.execute("SELECT MAX(playlist_id) FROM playlist")
+        max_pid = cursor.fetchone()[0] or 0
+        next_pid = max_pid + 1
+        # For each track, for each genre, ensure association
+        for file_path, tags in tracks.items():
+            track_id = path_to_trackid.get(file_path)
+            if not track_id:
+                continue
+            genres = set(tags.get('genre', []))
+            # Ensure all genre playlists exist and associations are present
+            genre_pids = set()
+            for genre in genres:
+                if not genre:
+                    continue
+                # Ensure playlist exists
+                if genre not in playlist_name_to_id:
+                    cursor.execute(
+                        "INSERT INTO playlist (playlist_id, name, pindex, folder, expanded) VALUES (?, ?, 0, 0, 0)",
+                        (next_pid, genre)
+                    )
+                    playlist_name_to_id[genre] = next_pid
+                    pid = next_pid
+                    next_pid += 1
+                else:
+                    pid = playlist_name_to_id[genre]
+                genre_pids.add(pid)
+                # Ensure association exists
+                if (pid, track_id) not in playlisttrack_set:
+                    cursor.execute(
+                        "INSERT INTO playlisttrack (playlist_id, track_id, tindex) VALUES (?, ?, 0)",
+                        (pid, track_id)
+                    )
+                    playlisttrack_set.add((pid, track_id))
+            # Remove associations for this track that are not in its genre list
+            for (pid, tid) in list(playlisttrack_set):
+                if tid == track_id and pid not in genre_pids:
+                    cursor.execute(
+                        "DELETE FROM playlisttrack WHERE playlist_id = ? AND track_id = ?",
+                        (pid, track_id)
+                    )
+                    playlisttrack_set.remove((pid, track_id))
+        # Ensure every playlist is present in topplaylist
+        cursor.execute("SELECT playlist_id FROM topplaylist")
+        topplaylist_pids = set(row[0] for row in cursor.fetchall())
+        cursor.execute("SELECT MAX(topplaylist_id), MAX(pindex) FROM topplaylist")
+        max_topplaylist_id, max_pindex = cursor.fetchone()
+        next_topplaylist_id = (max_topplaylist_id or 0) + 1
+        next_pindex = (max_pindex or 0) + 1
+        for pid in set(playlist_name_to_id.values()):
+            if pid not in topplaylist_pids:
+                cursor.execute(
+                    "INSERT INTO topplaylist (topplaylist_id, pindex, playlist_id) VALUES (?, ?, ?)",
+                    (next_topplaylist_id, next_pindex, pid)
+                )
+                next_topplaylist_id += 1
+                next_pindex += 1
+        conn.commit()
+    finally:
+        conn.close()
 
-    # TODO: write the library
 
-    
 def write_yaml(tracks, library_dir):
     """
     Writes YAML files for each file_path in tracks.
     """
     yaml_dir = os.path.join(library_dir, '.djtag')
     # Delete all files in djtag_dir except .gitignore
+    print("Resetting .djtag folder...")
     for file in os.listdir(yaml_dir):
         if file != '.gitignore' and file != '.git':
-            print(f"Deleting {file}")
             path = os.path.join(yaml_dir, file)
             if os.path.isdir(path):
                 shutil.rmtree(path)
@@ -229,8 +305,8 @@ def main():
     
     print("Scanning merged YAML files...")
     yaml_tracks = scan_yaml(library_dir)
-    print(yaml_tracks)
-    # write_swinsian_library(yaml_tracks)
+    print("Writing Swinsian library...")
+    write_swinsian_library(yaml_tracks)
 
 if __name__ == '__main__':
     main() 
