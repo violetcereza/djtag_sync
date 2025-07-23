@@ -4,6 +4,7 @@ from mutagen.id3._util import ID3NoHeaderError
 import yaml
 import subprocess
 from datetime import datetime
+import shutil
 
 MUSIC_EXTENSIONS = ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.aac']
 DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Library.sqlite')
@@ -23,12 +24,13 @@ def scan_music_folder(folder_path):
             if is_music_file(file):
                 file_path = os.path.join(root, file)
                 try:
-                    tags = EasyID3(file_path)
-                    id3_data[file_path] = dict(tags)
+                    tags = dict(EasyID3(file_path))
+                    tags['path'] = [file_path]
+                    id3_data[file_path] = tags
                 except ID3NoHeaderError:
-                    id3_data[file_path] = {}
-                except Exception as e:
-                    id3_data[file_path] = {'error': str(e)}
+                    id3_data[file_path] = {'path': [file_path]}
+                # except Exception as e:
+                #     id3_data[file_path] = {'error': str(e)}
     return id3_data
 
 def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
@@ -83,7 +85,7 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
         for track_id, file_path in trackid_to_path.items():
             tag_dict = path_to_tagdict[file_path]
             # Format the tags as a dict of lists of strings
-            tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None and k != 'path'}
+            tags = {k: [str(v)] for k, v in tag_dict.items() if v is not None}
             # Add playlists to genre tag
             playlists = trackid_to_playlists.get(track_id, [])
             if playlists:
@@ -97,15 +99,70 @@ def scan_swinsian_library(library_db_path=DEFAULT_SWINSIAN):
         conn.close()
     return results
 
+def scan_yaml(library_dir):
+    """
+    Scans the .djtag folder for YAML files and returns a dict:
+    {file_path: tags}
+    """
+    yaml_dir = os.path.join(library_dir, '.djtag')
+    yaml_tracks = {}
+    for root, _, files in os.walk(yaml_dir):
+        for file in files:
+            if file.endswith('.yaml'):
+                file_path = os.path.join(root, file)
+                with open(file_path, 'r') as f:
+                    tags = yaml.load(f, Loader=yaml.SafeLoader)
+                yaml_tracks[tags['path'][0]] = tags
+    return yaml_tracks
 
-def commit_djtag_to_git(djtag_dir, branch):
+
+def write_swinsian_library(library_db_path=DEFAULT_SWINSIAN, yaml_tracks=None):
+    """
+    Writes a Swinsian library from a dict of {file_path: tags}.
+    """
+
+    # TODO: write the library
+
+    
+def write_yaml(library_dir, tracks, filter_set=None):
+    """
+    Writes YAML files for each file_path in tracks. If filter_set is provided, only updates files in that set.
+    """
+    yaml_dir = os.path.join(library_dir, '.djtag')
+    # Delete all files in djtag_dir except .gitignore
+    for file in os.listdir(yaml_dir):
+        if file != '.gitignore' and file != '.git':
+            print(f"Deleting {file}")
+            path = os.path.join(yaml_dir, file)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+    
+    for file_path, tags in tracks.items():
+        if filter_set is not None and file_path not in filter_set:
+            print(f"Skipping {file_path} because it's not in the filter set")
+            continue
+
+        rel_path = os.path.relpath(file_path, library_dir)
+        base_name, _ = os.path.splitext(rel_path)
+        yaml_path = os.path.join(yaml_dir, f'{base_name}.yaml')
+        internal_yaml_dir = os.path.dirname(yaml_path)
+        os.makedirs(internal_yaml_dir, exist_ok=True)
+        with open(yaml_path, 'w') as f:
+            yaml.dump(tags, f, allow_unicode=True)
+        print(f"♫  {os.path.relpath(file_path, library_dir)}")
+
+
+def commit_yaml_to_git(djtag_dir, branch):
     """
     Checks out the named branch (creating it if it doesn't exist) without changing the working tree, 
     then commits all changes in .djtag on that branch.
     """
     # Check if branch exists
     if branch != 'id3':
-        result = subprocess.run(['git', 'rev-parse', '--verify', branch], cwd=djtag_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        result = subprocess.run(['git', 'rev-parse', '--verify', branch], 
+            cwd=djtag_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if result.returncode != 0:
             # Branch does not exist, create it from id3 branch
             subprocess.run(['git', 'checkout', '-b', branch, 'id3'], cwd=djtag_dir, check=True)
@@ -125,32 +182,6 @@ def commit_djtag_to_git(djtag_dir, branch):
         print(f"Committed .djtag folder to git on branch {branch}.")
     except subprocess.CalledProcessError as e:
         print(f"Git commit failed: {e}")
-
-
-def update_yaml(library_dir, tracks, filter_set=None):
-    """
-    Writes YAML files for each file_path in tracks. If filter_set is provided, only updates files in that set.
-    """
-    djtag_dir = os.path.join(library_dir, '.djtag')
-    # TODO: delete all files in djtag_dir except .gitignore
-    # for file in os.listdir(djtag_dir):
-    #     if file != '.gitignore':
-    #         os.remove(os.path.join(djtag_dir, file))
-    
-    for file_path, tags in tracks.items():
-        if filter_set is not None and file_path not in filter_set:
-            print(f"Skipping {file_path} because it's not in the filter set")
-            continue
-
-        rel_path = os.path.relpath(file_path, library_dir)
-        base_name, _ = os.path.splitext(rel_path)
-        yaml_path = os.path.join(djtag_dir, f'{base_name}.yaml')
-        yaml_dir = os.path.dirname(yaml_path)
-        os.makedirs(yaml_dir, exist_ok=True)
-        with open(yaml_path, 'w') as f:
-            yaml.dump(tags, f, allow_unicode=True)
-        print(f"♫  {os.path.relpath(file_path, library_dir)}")
-
 
 def main():
     import argparse
@@ -176,10 +207,10 @@ def main():
 
     print("Pulling tags from ID3...")
     id3_tracks = scan_music_folder(library_dir)
-    update_yaml(library_dir, id3_tracks)
+    write_yaml(library_dir, id3_tracks)
 
-    print("Committing id3 tags to git...")
-    # commit_djtag_to_git(djtag_dir, 'id3')
+    # print("Committing id3 tags to git...")
+    # commit_yaml_to_git(djtag_dir, 'id3')
 
     # # Git checkout HEAD^ 
     # print(f"Checking out original_commit...")
@@ -188,13 +219,17 @@ def main():
     # Apply the Swinsian mapping to the working tree
     print("Pulling tags from Swinsian...")
     swinsian_tracks = scan_swinsian_library()
-    update_yaml(library_dir, swinsian_tracks, filter_set=set(id3_tracks.keys()))
+    # write_yaml(library_dir, swinsian_tracks, filter_set=set(id3_tracks.keys()))
 
-    print("Committing swinsian tags to git...")
-    # commit_djtag_to_git(djtag_dir, 'swinsian')
+    # print("Committing swinsian tags to git...")
+    # commit_yaml_to_git(djtag_dir, 'swinsian')
 
-    # TODO: merge the commits
-    # TODO: push the changes to the remote repo
+    # TODO: git_merge_id3_swinsian()
+    
+    print("Scanning merged YAML files...")
+    yaml_tracks = scan_yaml(library_dir)
+    print(yaml_tracks)
+    # write_swinsian_library(yaml_tracks)
 
 if __name__ == '__main__':
     main() 
