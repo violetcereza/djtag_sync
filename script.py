@@ -28,6 +28,8 @@ def write_yaml(tracks, djtag_dir):
     """
     Writes YAML files for each file_path in tracks.
     """
+    os.makedirs(djtag_dir, exist_ok=True)
+
     # Delete all files in djtag_dir except .gitignore
     print("Resetting .djtag folder...")
     for file in os.listdir(djtag_dir):
@@ -60,6 +62,8 @@ def commit_yaml_to_git(djtag_dir, branch):
     Checks out the named branch (creating it if it doesn't exist) without changing the working tree, 
     then commits all changes in .djtag on that branch.
     """
+    subprocess.run(['git', 'init', '--initial-branch=id3'], cwd=djtag_dir, check=True)
+
     # Check if branch exists
     if branch != 'id3':
         result = subprocess.run(['git', 'rev-parse', '--verify', branch], 
