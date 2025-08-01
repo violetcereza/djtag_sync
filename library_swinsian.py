@@ -3,7 +3,7 @@ import sqlite3
 from collections import defaultdict
 from utilities import clean_genre_list
 from track import Track
-from dj_library import DJLibrary
+from library import DJLibrary
 
 DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Library.sqlite')
 

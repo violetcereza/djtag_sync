@@ -3,7 +3,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3._util import ID3NoHeaderError
 from utilities import clean_genre_list
 from track import Track
-from dj_library import DJLibrary
+from library import DJLibrary
 
 class ID3Library(DJLibrary):
     """

@@ -3,8 +3,8 @@
 Script to create instances of SwinsianLibrary and ID3Library.
 """
 
-from swinsian import SwinsianLibrary
-from id3 import ID3Library
+from library_swinsian import SwinsianLibrary
+from library_id3 import ID3Library
 import os
 import argparse
 
