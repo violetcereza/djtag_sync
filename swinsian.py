@@ -3,23 +3,25 @@ import sqlite3
 from collections import defaultdict
 from utilities import clean_genre_list
 from track import Track
+from dj_library import DJLibrary
 
 DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Library.sqlite')
 
-class SwinsianLibrary:
+class SwinsianLibrary(DJLibrary):
     """
     A library for reading and writing Swinsian SQLite database.
     """
     
-    def __init__(self, library_db_path=DEFAULT_SWINSIAN):
+    def __init__(self, music_folder, library_db_path=DEFAULT_SWINSIAN):
         """
         Initialize the SwinsianLibrary with a database path and scan for tracks.
         
         Args:
+            music_folder (str): Path to the music folder (required for DJLibrary)
             library_db_path (str): Path to the Swinsian SQLite database
         """
         self.library_db_path = os.path.abspath(os.path.expanduser(library_db_path))
-        self.tracks = self._scan()
+        super().__init__(music_folder)
     
     def _scan(self):
         """

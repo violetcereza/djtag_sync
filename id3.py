@@ -3,21 +3,21 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3._util import ID3NoHeaderError
 from utilities import clean_genre_list
 from track import Track
+from dj_library import DJLibrary
 
-class ID3Library:
+class ID3Library(DJLibrary):
     """
     A library for reading and writing ID3 tags from a music directory.
     """
     
-    def __init__(self, library_dir):
+    def __init__(self, music_folder):
         """
         Initialize the ID3Library with a directory path and scan for tracks.
         
         Args:
-            library_dir (str): Path to the music library directory
+            music_folder (str): Path to the music library directory
         """
-        self.library_dir = os.path.abspath(os.path.expanduser(library_dir))
-        self.tracks = self._scan()
+        super().__init__(music_folder)
     
     @staticmethod
     def is_music_file(filename):
@@ -29,9 +29,9 @@ class ID3Library:
         Scans the library directory for music files and returns a dict:
         {file_path: Track instance}
         """
-        print(f"Scanning {self.library_dir}")
+        print(f"Scanning {self.music_folder}")
         tracks = {}
-        for root, _, files in os.walk(self.library_dir):
+        for root, _, files in os.walk(self.music_folder):
             for file in files:
                 if self.is_music_file(file):
                     file_path = os.path.join(root, file)

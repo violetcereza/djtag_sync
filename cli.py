@@ -5,7 +5,6 @@ Script to create instances of SwinsianLibrary and ID3Library.
 
 from swinsian import SwinsianLibrary
 from id3 import ID3Library
-from library_history import LibraryHistory
 import os
 import argparse
 
@@ -57,7 +56,7 @@ def main():
         print(f"Fetch command not implemented yet for sources: {', '.join(args.sources)}")
     elif args.command == 'merge':
 
-        swinsian = SwinsianLibrary(args.swinsian_db)
+        swinsian = SwinsianLibrary(args.music_folder, args.swinsian_db)
         id3 = ID3Library(args.music_folder)
         for path in set(swinsian.tracks.keys()) & set(id3.tracks.keys()):
             s_track = swinsian.tracks[path]
@@ -65,10 +64,8 @@ def main():
             diff = s_track.diff(i_track)
             print(f"Diff for {path}: {diff}")
 
-        swinsian_history = LibraryHistory(swinsian, args.music_folder)
-        id3_history = LibraryHistory(id3, args.music_folder)
-        swinsian_history.commit(args.music_folder)
-        id3_history.commit(args.music_folder)
+        swinsian.commit()
+        id3.commit()
         
     elif args.command == 'push':
         print(f"Push command not implemented yet for sources: {', '.join(args.sources)}")
