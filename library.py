@@ -8,6 +8,7 @@ import pickle
 from abc import ABC, abstractmethod
 from deepdiff import DeepDiff, Delta
 from datetime import datetime
+import yaml
 
 class DJLibrary(ABC):
     """
@@ -24,7 +25,8 @@ class DJLibrary(ABC):
         self.music_folder = os.path.abspath(os.path.expanduser(music_folder))
         self.library_type = self.__class__.__name__
         self.tracks = self._scan()
-        self.last_commit = self._load_last_commit()
+        self.commits = self._scan_commits()
+        self.meta = self._read_meta()
     
     @abstractmethod
     def _scan(self):
@@ -45,35 +47,116 @@ class DJLibrary(ABC):
         """
         pass
     
-    def _load_last_commit(self):
+    def _read_meta(self):
         """
-        Load the last commit from pickle file.
-        
-        Returns:
-            DJLibrary or None: The last committed library state
+        Read the meta.yaml file.
         """
-        try:
-            djtag_dir = os.path.join(self.music_folder, '.djtag')
-            filename = f"{self.library_type}.pkl"
-            filepath = os.path.join(djtag_dir, filename)
-            if os.path.exists(filepath):
-                with open(filepath, 'rb') as f:
-                    return pickle.load(f)
-        except Exception as e:
-            print(f"Error loading last commit for {self.library_type}: {e}")
-        return None
+        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
+        meta_path = os.path.join(djtag_dir, 'meta.yaml')
+        if os.path.exists(meta_path):
+            with open(meta_path, 'r') as f:
+                return yaml.safe_load(f) or {}
+        return {}
+
+    def _scan_commits(self):
+        """
+        Load the commits from pickle file.
+        """
+        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
+        commits = []
+        for file in os.listdir(djtag_dir):
+            if file.endswith('.pkl'):
+                commits.append(self._commit_file_to_datetime(file))
+        return commits
     
+    def _commit_file_to_datetime(self, commit_file):
+        """
+        Convert a commit file name to a datetime object.
+        """
+        return datetime.strptime(commit_file.split('.')[0], '%Y-%m-%d_%H-%M-%S')
+    
+    def _datetime_to_commit_file(self, dt):
+        """
+        Convert a datetime object to a commit file name.
+        """
+        return f"{dt.strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
+
+    def load_commit(self, commit_datetime):
+        """
+        Load the commit from pickle file.
+        """
+        commit_file = self._datetime_to_commit_file(commit_datetime)
+        with open(os.path.join(self.music_folder, '.djtag', self.library_type, commit_file), 'rb') as f:
+            return pickle.load(f)
+
+    def merge(self, other_library):
+        """
+        Merge the current library state with the other library state.
+        First, check djtag_dir/meta.yaml to see when {other_library.library_type: {last_merged: Date}} was.
+        """
+
+        other_type = other_library.library_type
+        last_merged = self.meta.get(other_type, {}).get('last_merged')
+        if not last_merged:
+            print(f"No last_merged date found for {other_library.library_type}. Creating new one.")
+        try:
+            last_merged_dt = datetime.fromisoformat(last_merged) if last_merged else None
+        except Exception:
+            print(f"Could not parse last_merged date: {last_merged}")
+            last_merged_dt = None
+
+        print(f"Last merged with {other_library.library_type}: {last_merged_dt}")
+        # Filter commits after last_merged
+        filtered_commits = [
+            dt for dt in other_library.commits
+            if (last_merged_dt is None or dt > last_merged_dt)
+        ]
+        filtered_commits.sort()
+
+        prev_tracks = None
+
+        for dt in filtered_commits:
+            commit_obj = other_library.load_commit(dt)
+            if prev_tracks is None:
+                prev_tracks = commit_obj.tracks
+                continue
+            diff = DeepDiff(prev_tracks, commit_obj.tracks, ignore_order=True, report_repetition=True)
+            if diff:
+                print("Diff:")
+                print(diff)
+                delta = Delta(diff)
+                # Apply the delta from the other library to self.tracks
+                self.tracks += delta
+            prev_tracks = commit_obj.tracks
+
+        # After applying all deltas, print the diff between the most recent commit and self.tracks
+        print("Diff after applying deltas:")
+        print(self.diff())
+   
+    def diff(self):
+        """
+        Diff the current library state with the commit.
+        """
+        if not self.commits:
+            raise ValueError("No commits found to diff against.")
+        most_recent_commit = max(self.commits)
+        commit = self.load_commit(most_recent_commit)
+        diff = DeepDiff(commit.tracks, self.tracks)
+        return diff
+ 
     def commit(self):
         """
         Commit the current library state to pickle file.
         """
+        print(self.diff())
+        if not self.diff():
+            print(f"No changes detected for {self.library_type}. Commit not saved.")
+            return
+        
         djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
         os.makedirs(djtag_dir, exist_ok=True)
-        filepath = os.path.join(djtag_dir, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl")
-        # diff = DeepDiff(self.last_commit.tracks, self.tracks)
-        # delta = Delta(diff)
-        # print(diff)
-        # print(delta)
-        # print(len(diff))
+        commit_file = self._datetime_to_commit_file(datetime.now())
+        filepath = os.path.join(djtag_dir, commit_file)
         with open(filepath, 'wb') as f:
             pickle.dump(self, f) 
+        self.commits.append(datetime.now())

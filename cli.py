@@ -66,6 +66,7 @@ def main():
 
         swinsian.commit()
         id3.commit()
+        swinsian.merge(id3)
         
     elif args.command == 'push':
         print(f"Push command not implemented yet for sources: {', '.join(args.sources)}")
