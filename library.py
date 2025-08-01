@@ -6,6 +6,8 @@ DJLibrary base class for music library management.
 import os
 import pickle
 from abc import ABC, abstractmethod
+from deepdiff import DeepDiff, Delta
+from datetime import datetime
 
 class DJLibrary(ABC):
     """
@@ -65,9 +67,13 @@ class DJLibrary(ABC):
         """
         Commit the current library state to pickle file.
         """
-        djtag_dir = os.path.join(self.music_folder, '.djtag')
+        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
         os.makedirs(djtag_dir, exist_ok=True)
-        filename = f"{self.library_type}.pkl"
-        filepath = os.path.join(djtag_dir, filename)
+        filepath = os.path.join(djtag_dir, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl")
+        # diff = DeepDiff(self.last_commit.tracks, self.tracks)
+        # delta = Delta(diff)
+        # print(diff)
+        # print(delta)
+        # print(len(diff))
         with open(filepath, 'wb') as f:
             pickle.dump(self, f) 
