@@ -2,46 +2,68 @@ import os
 from mutagen.easyid3 import EasyID3
 from mutagen.id3._util import ID3NoHeaderError
 from utilities import clean_genre_list
+from track import Track
 
-def is_music_file(filename):
-    return any(filename.lower().endswith(ext) for ext in ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.aac'])
-
-def scan_music_folder(folder_path):
+class ID3Library:
     """
-    Scans a folder for music files and returns a dict:
-    {file_path: tags}
+    A library for reading and writing ID3 tags from a music directory.
     """
-    id3_data = {}
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            if is_music_file(file):
-                file_path = os.path.join(root, file)
-                try:
-                    tags = dict(EasyID3(file_path))
-                    tags['path'] = [file_path]
-                    if 'genre' in tags:
-                        tags['genre'] = clean_genre_list(tags['genre'])
-                    id3_data[file_path] = tags
-                except ID3NoHeaderError:
-                    id3_data[file_path] = {'path': [file_path]}
-    return id3_data
-
-def write_music_folder(tracks, library_dir):
-    """
-    For each track, if the file is in library_dir, write the genre tag (comma-separated string) to the ID3 tag.
-    """
-    for file_path, tags in tracks.items():
+    
+    def __init__(self, library_dir):
+        """
+        Initialize the ID3Library with a directory path and scan for tracks.
+        
+        Args:
+            library_dir (str): Path to the music library directory
+        """
+        self.library_dir = os.path.abspath(os.path.expanduser(library_dir))
+        self.tracks = self._scan()
+    
+    @staticmethod
+    def is_music_file(filename):
+        """Check if a file is a supported music file."""
+        return any(filename.lower().endswith(ext) for ext in ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.aac'])
+    
+    def _scan(self):
+        """
+        Scans the library directory for music files and returns a dict:
+        {file_path: Track instance}
+        """
+        tracks = {}
+        for root, _, files in os.walk(self.library_dir):
+            for file in files:
+                if self.is_music_file(file):
+                    file_path = os.path.join(root, file)
+                    try:
+                        tags_dict = dict(EasyID3(file_path))
+                        if 'genre' in tags_dict:
+                            tags_dict['genre'] = clean_genre_list(tags_dict['genre'])
+                        # Convert list values to strings for Track compatibility
+                        # tags = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in tags_dict.items()}
+                        tracks[file_path] = Track(file_path, tags_dict)
+                    except ID3NoHeaderError:
+                        tracks[file_path] = Track(file_path, {})
+        return tracks
+    
+    def write(self, track):
+        """
+        Write the track's genre tag to the ID3 file if it's in the library directory.
+        
+        Args:
+            track (Track): Track instance to write
+        """
+        file_path = track.path
         abs_file_path = os.path.abspath(file_path)
-        abs_library_dir = os.path.abspath(library_dir)
         # Check if file exists and is within library_dir
         if not os.path.isfile(abs_file_path):
             print(f"File does not exist: {file_path}")
-            continue
-        if not os.path.commonpath([abs_file_path, abs_library_dir]) == abs_library_dir:
+            return
+        if not os.path.commonpath([abs_file_path, self.library_dir]) == self.library_dir:
             print(f"Skipping {file_path} (not in library_dir)")
-            continue
-        genres = tags.get('genre', [])
-        genre_str = ', '.join(genres)
+            return
+        genre_str = track.tags.get('genre', '')
+        if not isinstance(genre_str, str):
+            genre_str = ', '.join(genre_str) if genre_str else ''
         try:
             id3_tags = EasyID3(abs_file_path)
         except Exception:
@@ -52,10 +74,17 @@ def write_music_folder(tracks, library_dir):
                 id3_tags = EasyID3(abs_file_path)
             except Exception as e:
                 print(f"Could not open or create ID3 for {file_path}: {e}")
-                continue
+                return
         id3_tags['genre'] = genre_str
         try:
             id3_tags.save()
             print(f"Updated genre for {file_path} -> {genre_str}")
         except Exception as e:
-            print(f"Failed to save ID3 for {file_path}: {e}") 
+            print(f"Failed to save ID3 for {file_path}: {e}")
+    
+    def writeLibrary(self):
+        """
+        Write all tracks in the library to their respective ID3 files.
+        """
+        for file_path, track in self.tracks.items():
+            self.write(track) 
