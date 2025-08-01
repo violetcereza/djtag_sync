@@ -32,6 +32,7 @@ class SwinsianLibrary:
         # albumartist, totaldiscnumber, datecreated, grouping, bpm, publisher, totaltracknumber, 
         # description, datemodified, catalognumber, conductor, discsubtitle, lyrics, copyright
         """
+        print(f"Scanning {self.library_db_path}")
         results = {}
         conn = sqlite3.connect(self.library_db_path)
         cursor = conn.cursor()

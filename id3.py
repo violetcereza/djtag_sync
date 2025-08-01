@@ -29,6 +29,7 @@ class ID3Library:
         Scans the library directory for music files and returns a dict:
         {file_path: Track instance}
         """
+        print(f"Scanning {self.library_dir}")
         tracks = {}
         for root, _, files in os.walk(self.library_dir):
             for file in files:
