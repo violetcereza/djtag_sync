@@ -6,14 +6,11 @@ DJLibrary base class for music library management.
 import os
 import pickle
 from abc import ABC, abstractmethod
-from deepdiff import DeepDiff, Delta
 from datetime import datetime
 import yaml
+from library_diff import DJLibraryDiff
 
 class DJLibrary(ABC):
-    """
-    Base class for music library management with history tracking.
-    """
     
     def __init__(self, music_folder: str):
         """
@@ -92,7 +89,8 @@ class DJLibrary(ABC):
     def merge(self, other_library):
         """
         Merge the current library state with the other library state.
-        First, check djtag_dir/meta.yaml to see when {other_library.library_type: {last_merged: Date}} was.
+        First, check djtag_dir/meta.yaml to see when 
+        {other_library.library_type: {last_merged: Date}} was.
         """
 
         other_type = other_library.library_type
@@ -113,21 +111,19 @@ class DJLibrary(ABC):
         ]
         filtered_commits.sort()
 
-        prev_tracks = None
+        prev_commit = None
 
         for dt in filtered_commits:
             commit_obj = other_library.load_commit(dt)
-            if prev_tracks is None:
-                prev_tracks = commit_obj.tracks
-                continue
-            diff = DeepDiff(prev_tracks, commit_obj.tracks, ignore_order=True, report_repetition=True)
-            if diff:
-                print("Diff:")
-                print(diff)
-                delta = Delta(diff)
-                # Apply the delta from the other library to self.tracks
-                self.tracks += delta
-            prev_tracks = commit_obj.tracks
+            if prev_commit is not None:
+                diff = DJLibraryDiff(prev_commit, commit_obj)
+                if diff:
+                    print("Diff:")
+                    print(diff)
+                    delta = diff.delta()
+                    # Apply the delta from the other library to self.tracks
+                    self.tracks += delta
+            prev_commit = commit_obj
 
         # After applying all deltas, print the diff between the most recent commit and self.tracks
         print("Diff after applying deltas:")
@@ -141,7 +137,7 @@ class DJLibrary(ABC):
             raise ValueError("No commits found to diff against.")
         most_recent_commit = max(self.commits)
         commit = self.load_commit(most_recent_commit)
-        diff = DeepDiff(commit.tracks, self.tracks)
+        diff = DJLibraryDiff(commit, self)
         return diff
  
     def commit(self):
