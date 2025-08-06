@@ -4,6 +4,7 @@ DJLibraryDiff class for comparing two DJ library instances.
 """
 
 from deepdiff import DeepDiff, Delta
+from colorama import Fore, Style
 
 class DJLibraryDiff(DeepDiff):
     """
@@ -44,27 +45,29 @@ class DJLibraryDiff(DeepDiff):
             if action_type == 'values_changed':
                 action_str = "[CHANGED] "
             elif action_type == 'dictionary_item_added':
-                action_str = "[ADDED] "
+                action_str = "[DICT ADDED] "
             elif action_type == 'dictionary_item_removed':
-                action_str = "[REMOVED] "
-            elif action_type == 'iterable_item_added':
-                action_str = "[ITERABLE_ADDED] "
-            elif action_type == 'iterable_item_removed':
-                action_str = "[ITERABLE_REMOVED] "
+                action_str = "[DICT REMOVED] "
+            # elif action_type == 'iterable_item_added':
+            #     action_str = "[ITERABLE_ADDED] "
+            # elif action_type == 'iterable_item_removed':
+            #     action_str = "[ITERABLE_REMOVED] "
+            else:
+                action_str = ""
 
             for action_tree in actions_list:
-                track_path = action_tree.all_up.down.t1.path
+                track_path = action_tree.all_up.down.t1
 
                 if action_type == 'values_changed':
-                    action_str += f"-{action_tree.t1}+{action_tree.t2} "
+                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL}{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'dictionary_item_added':
-                    action_str += f"+{action_tree.t2} "
+                    action_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'dictionary_item_removed':
-                    action_str += f"-{action_tree.t1} "
+                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
                 elif action_type == 'iterable_item_added':
-                    action_str += f"+{action_tree.t2} "
+                    action_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'iterable_item_removed':
-                    action_str += f"-{action_tree.t1} "
+                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
                 
                 if track_path not in tracks:
                     tracks[track_path] = ""
@@ -74,5 +77,8 @@ class DJLibraryDiff(DeepDiff):
         if len(tracks) == 0:
             return "No changes"
         else:
-            return str(tracks)
+            output_lines = ["LIBRARY CHANGES:"]
+            for key, val in tracks.items():
+                output_lines.append(f"{key}: {val}")
+            return "\n".join(output_lines)
 

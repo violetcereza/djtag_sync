@@ -118,7 +118,7 @@ class DJLibrary(ABC):
             if prev_commit is not None:
                 diff = DJLibraryDiff(prev_commit, commit_obj)
                 if diff:
-                    print("Diff:")
+                    # print("\n")
                     print(diff)
                     delta = diff.delta()
                     # Apply the delta from the other library to self.tracks
