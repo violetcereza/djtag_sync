@@ -56,6 +56,15 @@ class DJLibrary(ABC):
                 return yaml.safe_load(f) or {}
         return {}
 
+    def _write_meta(self):
+        """
+        Write the meta.yaml file.
+        """
+        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
+        meta_path = os.path.join(djtag_dir, 'meta.yaml')
+        with open(meta_path, 'w') as f:
+            yaml.dump(self.meta, f)
+
     def _scan_commits(self):
         """
         Load the commits from pickle file.
@@ -140,6 +149,16 @@ class DJLibrary(ABC):
         # After applying all deltas, print the diff between the most recent commit and self.tracks
         print("Diff after applying deltas:")
         print(self.diff())
+
+        self.writeLibrary()
+        self.commit()
+
+        if other_type not in self.meta:
+            self.meta[other_type] = {}
+        self.meta[other_type]['last_merged'] = datetime.now().isoformat()
+        self._write_meta()
+
+        return
    
     def diff(self):
         """
