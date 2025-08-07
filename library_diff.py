@@ -57,28 +57,28 @@ class DJLibraryDiff(DeepDiff):
 
             for action_tree in actions_list:
                 track_path = action_tree.all_up.down.t1
+                track_str = action_str
 
                 if action_type == 'values_changed':
-                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL}{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
+                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL}{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'dictionary_item_added':
-                    action_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
+                    track_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'dictionary_item_removed':
-                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
+                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
                 elif action_type == 'iterable_item_added':
-                    action_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
+                    track_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
                 elif action_type == 'iterable_item_removed':
-                    action_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
+                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
                 
                 if track_path not in tracks:
                     tracks[track_path] = ""
-
-            tracks[track_path] += action_str
+                tracks[track_path] += track_str
         
         if len(tracks) == 0:
-            return "No changes"
+            return f"{Style.DIM}No changes{Style.RESET_ALL}"
         else:
-            output_lines = ["LIBRARY CHANGES:"]
+            output_lines = [f"{Style.DIM}LIBRARY CHANGES:{Style.RESET_ALL}"]
             for key, val in tracks.items():
-                output_lines.append(f"{key}: {val}")
+                output_lines.append(f"\t{key}: {val}")
             return "\n".join(output_lines)
 

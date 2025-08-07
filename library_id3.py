@@ -4,6 +4,7 @@ from mutagen.id3._util import ID3NoHeaderError
 from utilities import clean_genre_list
 from track import Track
 from library import DJLibrary
+from colorama import Fore, Style
 
 class ID3Library(DJLibrary):
     """
@@ -29,7 +30,7 @@ class ID3Library(DJLibrary):
         Scans the library directory for music files and returns a dict:
         {file_path: Track instance}
         """
-        print(f"Scanning {self.music_folder}")
+        print(f"{Fore.CYAN}Scanning{Style.RESET_ALL} {self.music_folder}")
         tracks = {}
         for root, _, files in os.walk(self.music_folder):
             for file in files:
@@ -87,5 +88,6 @@ class ID3Library(DJLibrary):
         """
         Write all tracks in the library to their respective ID3 files.
         """
+        print(f"{Fore.CYAN}Writing{Style.RESET_ALL} {self.music_folder}")
         for file_path, track in self.tracks.items():
             self.write(track) 

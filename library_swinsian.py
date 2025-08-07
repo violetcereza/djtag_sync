@@ -4,6 +4,7 @@ from collections import defaultdict
 from utilities import clean_genre_list
 from track import Track
 from library import DJLibrary
+from colorama import Fore, Style
 
 DEFAULT_SWINSIAN = os.path.expanduser('~/Library/Application Support/Swinsian/Library.sqlite')
 
@@ -34,7 +35,7 @@ class SwinsianLibrary(DJLibrary):
         # albumartist, totaldiscnumber, datecreated, grouping, bpm, publisher, totaltracknumber, 
         # description, datemodified, catalognumber, conductor, discsubtitle, lyrics, copyright
         """
-        print(f"Scanning {self.library_db_path}")
+        print(f"{Fore.CYAN}Scanning{Style.RESET_ALL} {self.library_db_path}")
         results = {}
         conn = sqlite3.connect(self.library_db_path)
         cursor = conn.cursor()
@@ -84,6 +85,7 @@ class SwinsianLibrary(DJLibrary):
         Remove playlists (and their topplaylist entries) that are not referenced by any track's genre tag.
         Also updates the genre field in the tracks table with a comma-separated version of the genres.
         """
+        print(f"{Fore.CYAN}Writing{Style.RESET_ALL} {self.library_db_path}")
         conn = sqlite3.connect(self.library_db_path)
         cursor = conn.cursor()
         try:
@@ -97,9 +99,12 @@ class SwinsianLibrary(DJLibrary):
             max_pid = cursor.fetchone()[0] or 0
             next_pid = max_pid + 1
             used_playlist_ids = set()
+            tracks_skipped = 0
             for file_path, track in self.tracks.items():
                 track_id = path_to_trackid.get(file_path)
                 if not track_id:
+                    # track is not in the swinsian library, so we don't need to update it
+                    tracks_skipped += 1
                     continue
                 genres = set(track.tags.get('genre', []))
                 # Update the genre field in the tracks table with a comma-separated version of the genres
@@ -154,5 +159,7 @@ class SwinsianLibrary(DJLibrary):
                 cursor.execute("DELETE FROM topplaylist WHERE playlist_id = ?", (pid,))
                 cursor.execute("DELETE FROM playlist WHERE playlist_id = ?", (pid,))
             conn.commit()
+            if tracks_skipped > 0:
+                print(f"{Style.DIM}Skipped {tracks_skipped} tracks that are not in the Swinsian library.{Style.RESET_ALL}")
         finally:
             conn.close() 

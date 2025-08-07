@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import yaml
 from library_diff import DJLibraryDiff
+from colorama import Style, Fore
 
 class DJLibrary(ABC):
     
@@ -95,15 +96,16 @@ class DJLibrary(ABC):
 
         other_type = other_library.library_type
         last_merged = self.meta.get(other_type, {}).get('last_merged')
-        if not last_merged:
-            print(f"No last_merged date found for {other_library.library_type}. Creating new one.")
         try:
             last_merged_dt = datetime.fromisoformat(last_merged) if last_merged else None
         except Exception:
             print(f"Could not parse last_merged date: {last_merged}")
             last_merged_dt = None
 
-        print(f"Last merged with {other_library.library_type}: {last_merged_dt}")
+        print(
+            f"{Fore.CYAN}Merging{Style.RESET_ALL} all changes on "
+            f"{other_library.library_type} since last merge at {last_merged_dt}"
+        )
         # Filter commits after last_merged
         filtered_commits = [
             dt for dt in other_library.commits
@@ -111,8 +113,11 @@ class DJLibrary(ABC):
         ]
         filtered_commits.sort()
 
-        prev_commit = None
+        if len(filtered_commits) == 0:
+            print(f"{Style.DIM}No commits on {other_library.library_type} since last merge.{Style.RESET_ALL}")
+            return
 
+        prev_commit = None
         for dt in filtered_commits:
             commit_obj = other_library.load_commit(dt)
             if prev_commit is not None:
@@ -122,8 +127,15 @@ class DJLibrary(ABC):
                     print(diff)
                     delta = diff.delta()
                     # Apply the delta from the other library to self.tracks
-                    self.tracks += delta
+                    try:
+                        self.tracks += delta
+                    except Exception as e:
+                        print(f"Error applying changes: {e}")
             prev_commit = commit_obj
+
+        # if not self.diff():
+        #     print(f"{Style.DIM}No updates needed to {self.library_type} from {other_library.library_type}.{Style.RESET_ALL}")
+        #     return
 
         # After applying all deltas, print the diff between the most recent commit and self.tracks
         print("Diff after applying deltas:")
@@ -144,11 +156,12 @@ class DJLibrary(ABC):
         """
         Commit the current library state to pickle file.
         """
-        print(self.diff())
         if not self.diff():
-            print(f"No changes detected for {self.library_type}. Commit not saved.")
+            print(f"{Style.DIM}No changes detected for {self.library_type}. Commit not saved.{Style.RESET_ALL}")
             return
         
+        print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type}...")
+        print(self.diff())
         djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
         os.makedirs(djtag_dir, exist_ok=True)
         commit_file = self._datetime_to_commit_file(datetime.now())

@@ -57,15 +57,11 @@ def main():
     elif args.command == 'merge':
 
         swinsian = SwinsianLibrary(args.music_folder, args.swinsian_db)
-        id3 = ID3Library(args.music_folder)
-        # for path in set(swinsian.tracks.keys()) & set(id3.tracks.keys()):
-        #     s_track = swinsian.tracks[path]
-        #     i_track = id3.tracks[path]
-        #     diff = s_track.diff(i_track)
-        #     print(f"Diff for {path}: {diff}")
-
         swinsian.commit()
+        id3 = ID3Library(args.music_folder)
         id3.commit()
+
+        # Merge the libraries
         swinsian.merge(id3)
         
     elif args.command == 'push':
