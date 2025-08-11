@@ -1,4 +1,4 @@
-from deepdiff import DeepDiff, Delta
+from deepdiff import DeepDiff
 from colorama import Fore, Style
 import os
 
@@ -28,3 +28,6 @@ class Track:
             return f"{Fore.YELLOW}{artist[0]}{Style.RESET_ALL} - {Fore.BLUE}{title[0]}{Style.RESET_ALL}"
         else:
             return f"{Fore.BLUE}{os.path.basename(self.path)}{Style.RESET_ALL}"
+    
+    def diff(self, other_track: "Track"):
+        return DeepDiff(self.tags, other_track.tags, ignore_order=True, report_repetition=True)

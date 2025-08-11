@@ -57,12 +57,16 @@ def main():
     elif args.command == 'merge':
 
         swinsian = SwinsianLibrary(args.music_folder, args.swinsian_db)
-        swinsian.commit()
+        print(swinsian.diff())
+        # swinsian.commit()
+        
         id3 = ID3Library(args.music_folder)
-        id3.commit()
+        print(id3.diff())
+        # id3.commit()
 
         # Merge the libraries
-        swinsian.merge(id3)
+        # swinsian.merge(id3)
+        # id3.merge(swinsian)
         
     elif args.command == 'push':
         print(f"Push command not implemented yet for sources: {', '.join(args.sources)}")

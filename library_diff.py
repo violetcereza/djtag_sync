@@ -3,12 +3,11 @@
 DJLibraryDiff class for comparing two DJ library instances.
 """
 
-from deepdiff import DeepDiff, Delta
 from colorama import Fore, Style
 
-class DJLibraryDiff(DeepDiff):
+class DJLibraryDiff:
     """
-    A class that compares two DJ library instances and extends DeepDiff.
+    A class that compares two DJ library instances using track-by-track comparison.
     """
     
     def __init__(self, old_library, new_library):
@@ -16,69 +15,97 @@ class DJLibraryDiff(DeepDiff):
         Initialize DJLibraryDiff with two library instances.
         
         Args:
-            old_dj_library (DJLibrary): The old/previous library state
-            new_dj_library (DJLibrary): The new/current library state
+            old_library (DJLibrary): The old/previous library state
+            new_library (DJLibrary): The new/current library state
         """
-
-        from library import DJLibrary
-        if not isinstance(old_library, DJLibrary) or not isinstance(new_library, DJLibrary):
-            raise TypeError("Both arguments must be instances of DJLibrary.")
         
-        super().__init__(
-            old_library.tracks,
-            new_library.tracks,
-            ignore_order=True,
-            report_repetition=True,
-            view='tree'
-        )
-    
-    def delta(self):
-        """
-        Return the deltas of the diff.
-        """
-        return Delta(self)
-
-    def __str__(self):
-        tracks = {}
-        for action_type, actions_list in self.items():
-
-            if action_type == 'values_changed':
-                action_str = "[CHANGED] "
-            elif action_type == 'dictionary_item_added':
-                action_str = "[DICT ADDED] "
-            elif action_type == 'dictionary_item_removed':
-                action_str = "[DICT REMOVED] "
-            # elif action_type == 'iterable_item_added':
-            #     action_str = "[ITERABLE_ADDED] "
-            # elif action_type == 'iterable_item_removed':
-            #     action_str = "[ITERABLE_REMOVED] "
+        # Compute track-by-track differences between the two libraries
+        diffs = {}
+        
+        # Get all unique file paths from both libraries
+        all_paths = set(old_library.tracks.keys()) | set(new_library.tracks.keys())
+        
+        for file_path in all_paths:
+            old_track = old_library.tracks.get(file_path)
+            new_track = new_library.tracks.get(file_path)
+            
+            if old_track is None:
+                # Track was added
+                # diffs[file_path] = {
+                #     'type': 'added',
+                #     'track': new_track,
+                #     'diff': []
+                # }
+                pass
+            elif new_track is None:
+                # Track was removed
+                # diffs[file_path] = {
+                #     'type': 'removed',
+                #     'track': old_track,
+                #     'diff': []
+                # }
+                pass
             else:
-                action_str = ""
-
-            for action_tree in actions_list:
-                track_path = action_tree.all_up.down.t1
-                track_str = action_str
-
-                if action_type == 'values_changed':
-                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL}{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
-                elif action_type == 'dictionary_item_added':
-                    track_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
-                elif action_type == 'dictionary_item_removed':
-                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
-                elif action_type == 'iterable_item_added':
-                    track_str += f"{Fore.GREEN}+{action_tree.t2}{Style.RESET_ALL} "
-                elif action_type == 'iterable_item_removed':
-                    track_str += f"{Fore.RED}-{action_tree.t1}{Style.RESET_ALL} "
-                
-                if track_path not in tracks:
-                    tracks[track_path] = ""
-                tracks[track_path] += track_str
+                # Track exists in both, compare tags
+                track_diff = old_track.diff(new_track)
+                if track_diff:
+                    diffs[file_path] = {
+                        'type': 'modified',
+                        'old_track': old_track,
+                        'new_track': new_track,
+                        'diff': track_diff
+                    }
         
-        if len(tracks) == 0:
-            return f"{Style.DIM}No changes{Style.RESET_ALL}"
-        else:
-            output_lines = [f"{Style.DIM}LIBRARY CHANGES:{Style.RESET_ALL}"]
-            for key, val in tracks.items():
-                output_lines.append(f"\t{key}: {val}")
-            return "\n".join(output_lines)
-
+        self.diffs = diffs
+        
+    def __str__(self):
+        """
+        Return a human-readable string representation of the differences.
+        """
+        if not self.diffs:
+            return f"{Style.DIM}No changes detected{Style.RESET_ALL}"
+        
+        lines = []
+        modified = {path: info for path, info in self.diffs.items() if info['type'] == 'modified'}
+        lines.append(f"{Style.DIM}Library changes ({len(modified)}){Style.RESET_ALL}")
+        
+        for path, modification in modified.items():
+            track_str = str(modification['old_track'])
+            changes = []
+            
+            diff = modification['diff']
+            
+            # Build the change string in the format: // -<genre removed> +<genre added> ~<other changes>
+            change_parts = []
+            
+            # Handle genre removals
+            if 'iterable_item_removed' in diff:
+                for change_path, removed_value in diff['iterable_item_removed'].items():
+                    if "root['genre']" in change_path:
+                        change_parts.append(f"{Fore.RED}-{removed_value}{Style.RESET_ALL}")
+                    else:
+                        change_parts.append(f"{Fore.RED}-{change_path}/{removed_value}{Style.RESET_ALL}")
+            
+            # Handle genre additions
+            if 'iterable_item_added' in diff:
+                for change_path, added_value in diff['iterable_item_added'].items():
+                    if "root['genre']" in change_path:
+                        change_parts.append(f"{Fore.GREEN}+{added_value}{Style.RESET_ALL}")
+                    else:
+                        change_parts.append(f"{Fore.GREEN}+{change_path}/{added_value}{Style.RESET_ALL}")
+            
+            # Handle other changes
+            other_changes = []
+            if 'dictionary_item_added' in diff:
+                other_changes.append("added other tags")
+            if 'dictionary_item_removed' in diff:
+                other_changes.append("removed other tags")
+            if 'values_changed' in diff:
+                other_changes.append("modified other tags")
+            if other_changes:
+                change_parts.append(f"~{', '.join(other_changes)}")
+            
+            lines.append(f"  ♫ {track_str} {Style.DIM}//{Style.RESET_ALL} {' '.join(change_parts)}")
+        
+        return "\n".join(lines)
+    
