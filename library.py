@@ -88,6 +88,24 @@ class DJLibrary(ABC):
         """
         return f"{dt.strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
 
+    def commit(self):
+        """
+        Commit the current library state to pickle file.
+        """
+        if not self.diff():
+            print(f"{Style.DIM}No changes detected for {self.library_type}. Commit not saved.{Style.RESET_ALL}")
+            return
+        
+        print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type}...")
+        print(self.diff())
+        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
+        os.makedirs(djtag_dir, exist_ok=True)
+        commit_file = self._datetime_to_commit_file(datetime.now())
+        filepath = os.path.join(djtag_dir, commit_file)
+        with open(filepath, 'wb') as f:
+            pickle.dump(self, f) 
+        self.commits.append(datetime.now())
+    
     def load_commit(self, commit_datetime):
         """
         Load the commit from pickle file.
@@ -96,6 +114,35 @@ class DJLibrary(ABC):
         with open(os.path.join(self.music_folder, '.djtag', self.library_type, commit_file), 'rb') as f:
             return pickle.load(f)
 
+    def diff(self):
+        """
+        Diff the current library state with the commit.
+        """
+        if not self.commits:
+            raise ValueError("No commits found to diff against.")
+        most_recent_commit = max(self.commits)
+        commit = self.load_commit(most_recent_commit)
+        diff = DJLibraryDiff(commit, self)
+        return diff
+    
+    def apply(self, diff: DJLibraryDiff):
+        """
+        Apply a DJLibraryDiff to this library, modifying the tracks in place.
+        
+        Args:
+            diff (DJLibraryDiff): The diff to apply to this library
+        """
+        for file_path, diff_info in diff.diffs.items():
+            if diff_info['type'] == 'modified':
+                diff_obj = diff_info['diff']
+                
+                # Get the target track (should exist since we're only processing modified tracks)
+                if file_path in self.tracks:
+                    target_track = self.tracks[file_path]
+                    
+                    # Apply the diff using the track's apply method
+                    target_track.apply(diff_obj)
+ 
     def merge(self, other_library):
         """
         Merge the current library state with the other library state.
@@ -160,31 +207,3 @@ class DJLibrary(ABC):
 
         return
    
-    def diff(self):
-        """
-        Diff the current library state with the commit.
-        """
-        if not self.commits:
-            raise ValueError("No commits found to diff against.")
-        most_recent_commit = max(self.commits)
-        commit = self.load_commit(most_recent_commit)
-        diff = DJLibraryDiff(commit, self)
-        return diff
- 
-    def commit(self):
-        """
-        Commit the current library state to pickle file.
-        """
-        if not self.diff():
-            print(f"{Style.DIM}No changes detected for {self.library_type}. Commit not saved.{Style.RESET_ALL}")
-            return
-        
-        print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type}...")
-        print(self.diff())
-        djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
-        os.makedirs(djtag_dir, exist_ok=True)
-        commit_file = self._datetime_to_commit_file(datetime.now())
-        filepath = os.path.join(djtag_dir, commit_file)
-        with open(filepath, 'wb') as f:
-            pickle.dump(self, f) 
-        self.commits.append(datetime.now())

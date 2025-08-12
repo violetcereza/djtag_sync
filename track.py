@@ -1,4 +1,4 @@
-from deepdiff import DeepDiff
+from deepdiff import DeepDiff, Delta
 from colorama import Fore, Style
 import os
 
@@ -31,3 +31,15 @@ class Track:
     
     def diff(self, other_track: "Track"):
         return DeepDiff(self.tags, other_track.tags, ignore_order=True, report_repetition=True)
+    
+    def apply(self, diff):
+        """
+        Apply a DeepDiff delta to this track's tags.
+        
+        Args:
+            diff (DeepDiff): The diff object from track.diff()
+        """
+        if diff:
+            # Create a Delta from the diff and apply it to self.tags
+            delta = Delta(diff)
+            self.tags = delta + self.tags

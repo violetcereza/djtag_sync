@@ -30,20 +30,10 @@ class DJLibraryDiff:
             new_track = new_library.tracks.get(file_path)
             
             if old_track is None:
-                # Track was added
-                # diffs[file_path] = {
-                #     'type': 'added',
-                #     'track': new_track,
-                #     'diff': []
-                # }
+                # Track was added - ignore for diff purposes
                 pass
             elif new_track is None:
-                # Track was removed
-                # diffs[file_path] = {
-                #     'type': 'removed',
-                #     'track': old_track,
-                #     'diff': []
-                # }
+                # Track was removed - ignore for diff purposes
                 pass
             else:
                 # Track exists in both, compare tags
