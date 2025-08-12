@@ -35,7 +35,7 @@ class DJLibrary(ABC):
         Returns:
             dict: Dictionary of {file_path: Track instance}
         """
-        pass
+        print(f"{Fore.CYAN}Scanning{Style.RESET_ALL} {self.library_type}")
     
     @abstractmethod
     def writeLibrary(self):
@@ -43,7 +43,7 @@ class DJLibrary(ABC):
         Abstract method to write the library to its storage medium.
         Must be implemented by subclasses.
         """
-        pass
+        print(f"{Fore.CYAN}Writing{Style.RESET_ALL} {self.library_type}")
     
     def _read_meta(self):
         """

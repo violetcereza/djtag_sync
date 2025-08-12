@@ -35,7 +35,7 @@ class SwinsianLibrary(DJLibrary):
         # albumartist, totaldiscnumber, datecreated, grouping, bpm, publisher, totaltracknumber, 
         # description, datemodified, catalognumber, conductor, discsubtitle, lyrics, copyright
         """
-        print(f"{Fore.CYAN}Scanning{Style.RESET_ALL} {self.library_db_path}")
+        super()._scan()
         results = {}
         conn = sqlite3.connect(self.library_db_path)
         cursor = conn.cursor()
@@ -85,7 +85,7 @@ class SwinsianLibrary(DJLibrary):
         Remove playlists (and their topplaylist entries) that are not referenced by any track's genre tag.
         Also updates the genre field in the tracks table with a comma-separated version of the genres.
         """
-        print(f"{Fore.CYAN}Writing{Style.RESET_ALL} {self.library_db_path}")
+        super().writeLibrary()
         conn = sqlite3.connect(self.library_db_path)
         cursor = conn.cursor()
         try:

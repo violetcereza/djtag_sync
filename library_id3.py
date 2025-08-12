@@ -11,15 +11,6 @@ class ID3Library(DJLibrary):
     A library for reading and writing ID3 tags from a music directory.
     """
     
-    def __init__(self, music_folder):
-        """
-        Initialize the ID3Library with a directory path and scan for tracks.
-        
-        Args:
-            music_folder (str): Path to the music library directory
-        """
-        super().__init__(music_folder)
-    
     @staticmethod
     def is_music_file(filename):
         """Check if a file is a supported music file."""
@@ -30,7 +21,7 @@ class ID3Library(DJLibrary):
         Scans the library directory for music files and returns a dict:
         {file_path: Track instance}
         """
-        print(f"{Fore.CYAN}Scanning{Style.RESET_ALL} {self.music_folder}")
+        super()._scan()
         tracks = {}
         for root, _, files in os.walk(self.music_folder):
             for file in files:
@@ -88,6 +79,6 @@ class ID3Library(DJLibrary):
         """
         Write all tracks in the library to their respective ID3 files.
         """
-        print(f"{Fore.CYAN}Writing{Style.RESET_ALL} {self.music_folder}")
+        super().writeLibrary()
         for file_path, track in self.tracks.items():
             self.write(track) 
