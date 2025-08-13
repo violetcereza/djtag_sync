@@ -53,7 +53,7 @@ class TestMockLibrary:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Rock', 'Alternative']  # Modified
+            'genre': ['Alternative', 'Rock']  # Modified
         })
         
         modified_library = MockDJLibrary("ID3Library", "/music", {
@@ -86,7 +86,7 @@ class TestMockLibrary:
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock', 'Alternative'],
+                'genre': ['Alternative', 'Rock'],
                 'year': ['2021']
             })
         })
@@ -97,7 +97,7 @@ class TestMockLibrary:
         
         # Check changes were applied
         track = target_library.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Rock', 'Alternative']
+        assert track.tags['genre'] == ['Alternative', 'Rock']
         assert track.tags['year'] == ['2021']
     
     def test_merge_functionality(self):
@@ -127,7 +127,7 @@ class TestMockLibrary:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Rock', 'Alternative']
+            'genre': ['Alternative', 'Rock']
         })
         swinsian_library.tracks["/music/song1.mp3"] = modified_track
         swinsian_library.commit()
@@ -137,4 +137,4 @@ class TestMockLibrary:
         
         # Check merge worked
         track = id3_library.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Rock', 'Alternative'] 
+        assert track.tags['genre'] == ['Alternative', 'Rock'] 

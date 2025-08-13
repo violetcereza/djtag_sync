@@ -93,15 +93,15 @@ class DJLibrary(ABC):
         Commit the current library state to pickle file.
         """
         if not self.diff():
-            print(f"{Style.DIM}No changes detected for {self.library_type}. Commit not saved.{Style.RESET_ALL}")
+            print(f"{Style.DIM}Skipping redundant commit for {self.library_type}.{Style.RESET_ALL}")
             return
         
         print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type}...")
-        print(self.diff())
         djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
         os.makedirs(djtag_dir, exist_ok=True)
         commit_file = self._datetime_to_commit_file(datetime.now())
         filepath = os.path.join(djtag_dir, commit_file)
+        print(f"Committing to {commit_file}")
         with open(filepath, 'wb') as f:
             pickle.dump(self, f) 
         self.commits.append(datetime.now())
@@ -159,8 +159,8 @@ class DJLibrary(ABC):
             last_merged_dt = None
 
         print(
-            f"{Fore.CYAN}Merging{Style.RESET_ALL} all changes on "
-            f"{other_library.library_type} since last merge at {last_merged_dt}"
+            f"{Fore.CYAN}Merging{Style.RESET_ALL} changes from "
+            f"{other_library.library_type} to {self.library_type} since last merge at {last_merged_dt}"
         )
         # Filter commits after last_merged
         filtered_commits = [
@@ -183,9 +183,9 @@ class DJLibrary(ABC):
                     self.apply(diff)
             prev_commit = commit_obj
 
-        # if not self.diff():
-        #     print(f"{Style.DIM}No updates needed to {self.library_type} from {other_library.library_type}.{Style.RESET_ALL}")
-        #     return
+        if not self.diff():
+            print(f"{Style.DIM}No updates needed to {self.library_type} from {other_library.library_type}.{Style.RESET_ALL}")
+            return
 
         # After applying all deltas, print the diff between the most recent commit and self.tracks
         print("Diff after applying deltas:")

@@ -1,7 +1,6 @@
 import os
 import sqlite3
 from collections import defaultdict
-from utilities import clean_genre_list
 from track import Track
 from library import DJLibrary
 from colorama import Fore, Style
@@ -68,9 +67,7 @@ class SwinsianLibrary(DJLibrary):
             for track_id, file_path in trackid_to_path.items():
                 tag_dict = path_to_tagdict[file_path]
                 playlists = trackid_to_playlists.get(track_id, [])
-                genre_list = clean_genre_list(playlists)
-                tags = {'genre': genre_list}
-                results[file_path] = Track(file_path, tags)
+                results[file_path] = Track(file_path, {'genre': playlists})
         finally:
             conn.close()
         return results

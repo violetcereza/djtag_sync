@@ -45,7 +45,7 @@ class TestLibraryScenarios:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Rock', 'Alternative']
+            'genre': ['Alternative', 'Rock']
         })
         swinsian_library.tracks["/music/song1.mp3"] = modified_track
         swinsian_library.commit()
@@ -55,7 +55,7 @@ class TestLibraryScenarios:
         
         # Verify changes
         track = id3_library.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Rock', 'Alternative']
+        assert track.tags['genre'] == ['Alternative', 'Rock']
         print(f"✓ Genre change applied: {track.tags['genre']}")
         
         # Scenario 2: Complex tag changes
@@ -86,7 +86,7 @@ class TestLibraryScenarios:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Rock', 'Alternative'],
+            'genre': ['Alternative', 'Rock'],
             'year': ['2021'],
             'bpm': ['120']
         })
@@ -98,7 +98,7 @@ class TestLibraryScenarios:
         
         # Verify complex changes
         track = library_a.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Rock', 'Alternative']
+        assert track.tags['genre'] == ['Alternative', 'Rock']
         assert track.tags['year'] == ['2021']
         assert track.tags['bpm'] == ['120']
         print(f"✓ Complex changes applied: genre={track.tags['genre']}, year={track.tags['year']}, bpm={track.tags['bpm']}")
@@ -117,7 +117,7 @@ class TestLibraryScenarios:
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock', 'Alternative']
+                'genre': ['Alternative', 'Rock']
             }),
             "/music/song2.mp3": Track("/music/song2.mp3", {
                 'title': ['Song 2'],

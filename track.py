@@ -17,6 +17,15 @@ class Track:
         """
         self.path = path
         self.tags = tags or {}
+        if 'genre' in self.tags:
+            self.tags['genre'] = self._clean_genre_list(self.tags['genre'])
+
+    def _clean_genre_list(self, genre_list):
+        """
+        Split genre strings on commas, remove duplicates, and sort alphabetically
+        """
+        genre_split = [g.strip() for genre in genre_list for g in genre.split(',')]
+        return sorted(set(genre_split)) 
     
     def __repr__(self):
         return f"Track(path='{self.path}', tags={self.tags})"

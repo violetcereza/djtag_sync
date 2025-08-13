@@ -1,7 +1,6 @@
 import os
 from mutagen.easyid3 import EasyID3
 from mutagen.id3._util import ID3NoHeaderError
-from utilities import clean_genre_list
 from track import Track
 from library import DJLibrary
 from colorama import Fore, Style
@@ -29,8 +28,6 @@ class ID3Library(DJLibrary):
                     file_path = os.path.join(root, file)
                     try:
                         tags_dict = dict(EasyID3(file_path))
-                        if 'genre' in tags_dict:
-                            tags_dict['genre'] = clean_genre_list(tags_dict['genre'])
                         # Convert list values to strings for Track compatibility
                         # tags = {k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in tags_dict.items()}
                         tracks[file_path] = Track(file_path, tags_dict)
