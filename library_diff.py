@@ -99,3 +99,5 @@ class DJLibraryDiff:
         
         return "\n".join(lines)
     
+    def __bool__(self):
+        return bool(self.diffs)

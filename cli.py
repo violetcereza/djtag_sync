@@ -58,14 +58,14 @@ def main():
 
         swinsian = SwinsianLibrary(args.music_folder, args.swinsian_db)
         print(swinsian.diff())
-        # swinsian.commit()
-        
+        swinsian.commit()
+
         id3 = ID3Library(args.music_folder)
         print(id3.diff())
-        # id3.commit()
+        id3.commit()
 
         # Merge the libraries
-        # swinsian.merge(id3)
+        swinsian.merge(id3)
         # id3.merge(swinsian)
         
     elif args.command == 'push':

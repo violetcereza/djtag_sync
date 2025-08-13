@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Mock DJLibrary for testing - represents libraries as YAML and runs simulated operations.
+Mock DJLibrary for testing - runs simulated operations without filesystem interaction.
 """
 
-import yaml
 from typing import Dict, Any, Optional
 from track import Track
 from library_diff import DJLibraryDiff
+from library import DJLibrary
 
-class MockDJLibrary:
+class MockDJLibrary(DJLibrary):
     """
-    A mock DJLibrary that can be represented as YAML and run simulated operations.
+    A mock DJLibrary that runs simulated operations without filesystem interaction.
     """
     
     def __init__(self, library_type: str, music_folder: str = "/mock/music", tracks: Optional[Dict[str, Track]] = None):
@@ -22,85 +22,46 @@ class MockDJLibrary:
             music_folder (str): Mock music folder path
             tracks (dict, optional): Dictionary of {file_path: Track} instances
         """
+        # Set tracks before calling parent constructor
+        self._tracks = tracks or {}
+        
+        # Call parent constructor
+        super().__init__(music_folder)
+        
+        # Override library_type
         self.library_type = library_type
-        self.music_folder = music_folder
-        self.tracks = tracks or {}
-        self.commits = []  # List of commit timestamps
+        
+        # Mock-specific attributes
         self.commit_libraries = {}  # Dict of {timestamp: library_instance}
-        self.meta = {}
     
-    def add_track(self, file_path: str, track: Track):
-        """Add a track to the library."""
-        self.tracks[file_path] = track
-    
-    def remove_track(self, file_path: str):
-        """Remove a track from the library."""
-        if file_path in self.tracks:
-            del self.tracks[file_path]
-    
-    def update_track(self, file_path: str, track: Track):
-        """Update a track in the library."""
-        self.tracks[file_path] = track
-    
-    def to_yaml(self) -> str:
+    def _scan(self):
         """
-        Convert the library to YAML representation.
-        
-        Returns:
-            str: YAML string representation of the library
+        Mock scan - returns the tracks that were set in the constructor.
         """
-        library_data = {
-            'library_type': self.library_type,
-            'music_folder': self.music_folder,
-            'tracks': {}
-        }
-        
-        for file_path, track in self.tracks.items():
-            library_data['tracks'][file_path] = {
-                'path': track.path,
-                'tags': track.tags
-            }
-        
-        return yaml.dump(library_data, default_flow_style=False, sort_keys=False)
+        return self._tracks
     
-    @classmethod
-    def from_yaml(cls, yaml_str: str) -> 'MockDJLibrary':
+    def writeLibrary(self):
         """
-        Create a MockDJLibrary from YAML string.
-        
-        Args:
-            yaml_str (str): YAML string representation
-            
-        Returns:
-            MockDJLibrary: Library instance
+        Mock write - does nothing since this is for testing.
         """
-        data = yaml.safe_load(yaml_str)
-        
-        library = cls(
-            library_type=data['library_type'],
-            music_folder=data['music_folder']
-        )
-        
-        for file_path, track_data in data['tracks'].items():
-            track = Track(track_data['path'], track_data['tags'])
-            library.tracks[file_path] = track
-        
-        return library
+        pass
     
-    def save_yaml(self, file_path: str):
-        """Save the library to a YAML file."""
-        with open(file_path, 'w') as f:
-            f.write(self.to_yaml())
+    def _scan_commits(self):
+        """
+        Mock scan commits - returns empty list since this is for testing.
+        """
+        return []
     
-    @classmethod
-    def load_yaml(cls, file_path: str) -> 'MockDJLibrary':
-        """Load a library from a YAML file."""
-        with open(file_path, 'r') as f:
-            return cls.from_yaml(f.read())
+    def _write_meta(self):
+        """
+        Mock write meta - does nothing since this is for testing.
+        """
+        pass
     
     def load_commit(self, commit_datetime):
         """
         Load the commit from the commit_libraries dict.
+        Override parent method to use in-memory storage.
         """
         if commit_datetime not in self.commit_libraries:
             raise ValueError(f"Commit {commit_datetime} not found")
@@ -109,7 +70,7 @@ class MockDJLibrary:
     def commit(self):
         """
         Commit the current library state.
-        For MockDJLibrary, this adds the current state to the commits list.
+        Override parent method to use in-memory storage.
         """
         from datetime import datetime
         
@@ -131,46 +92,3 @@ class MockDJLibrary:
         self.commits.append(timestamp)
         self.commit_libraries[timestamp] = commit_library
     
-    def diff(self) -> DJLibraryDiff:
-        """
-        Diff the current library state with the most recent commit.
-        Follows the same convention as DJLibrary.
-        """
-        if not self.commits:
-            raise ValueError("No commits found to diff against.")
-        most_recent_commit = max(self.commits)
-        commit = self.load_commit(most_recent_commit)
-        diff = DJLibraryDiff(commit, self)
-        return diff
-    
-    def merge(self, other_library: 'MockDJLibrary') -> 'MockDJLibrary':
-        """
-        Merge with another library without modifying the original.
-        Follows the same convention as DJLibrary.
-        
-        Args:
-            other_library (MockDJLibrary): Library to merge from
-            
-        Returns:
-            MockDJLibrary: New library with merged changes
-        """
-        # Create a copy of this library
-        merged_library = MockDJLibrary(
-            library_type=self.library_type,
-            music_folder=self.music_folder,
-            tracks=self.tracks.copy()
-        )
-        
-        # Apply all tracks from the other library (this simulates a merge)
-        for file_path, track in other_library.tracks.items():
-            merged_library.tracks[file_path] = track
-        
-        return merged_library
-    
-    def __str__(self):
-        """String representation of the library."""
-        return f"{self.library_type}({len(self.tracks)} tracks)"
-    
-    def __repr__(self):
-        """Detailed string representation."""
-        return f"MockDJLibrary(type={self.library_type}, tracks={len(self.tracks)})" 
