@@ -72,6 +72,24 @@ class SwinsianLibrary(DJLibrary):
             conn.close()
         return results
     
+    def _scaffold_track(self, track, diff_obj):
+        """
+        Scaffold the track to ensure SwinsianLibrary consistency.
+        SwinsianLibrary only needs genre tags, so remove all other tags.
+        
+        Args:
+            track (Track): The track to scaffold
+            diff_obj (DeepDiff): The diff object that was applied
+        """
+        # Call parent scaffolding to clean up genre tags
+        super()._scaffold_track(track, diff_obj)
+        
+        # SwinsianLibrary only cares about genre tags
+        # Remove all other tags to maintain consistency
+        genre_tags = track.tags.get('genre', [])
+        track.tags.clear()
+        track.tags['genre'] = genre_tags
+    
     def writeLibrary(self):
         """
         Write all tracks in the library to the Swinsian database.

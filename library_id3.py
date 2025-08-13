@@ -35,6 +35,22 @@ class ID3Library(DJLibrary):
                         tracks[file_path] = Track(file_path, {})
         return tracks
     
+    def _scaffold_track(self, track, diff_obj):
+        """
+        Scaffold the track to ensure ID3Library consistency.
+        ID3Library needs genre tag to exist for writing, so ensure it exists.
+        
+        Args:
+            track (Track): The track to scaffold
+            diff_obj (DeepDiff): The diff object that was applied
+        """
+        # Call parent scaffolding to clean up genre tags
+        super()._scaffold_track(track, diff_obj)
+        
+        # Ensure genre tag exists for ID3Library (even if empty)
+        if 'genre' not in track.tags:
+            track.tags['genre'] = []
+    
     def write(self, track):
         """
         Write the track's genre tag to the ID3 file if it's in the library directory.

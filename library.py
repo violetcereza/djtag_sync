@@ -25,6 +25,8 @@ class DJLibrary(ABC):
         self.tracks = self._scan()
         self.commits = self._scan_commits()
         self.meta = self._read_meta()
+        for track in self.tracks.values():
+            self._scaffold_track(track, None)
     
     @abstractmethod
     def _scan(self):
@@ -128,6 +130,7 @@ class DJLibrary(ABC):
     def apply(self, diff: DJLibraryDiff):
         """
         Apply a DJLibraryDiff to this library, modifying the tracks in place.
+        Uses library-specific scaffolding to ensure consistent state.
         
         Args:
             diff (DJLibraryDiff): The diff to apply to this library
@@ -142,6 +145,9 @@ class DJLibrary(ABC):
                     
                     # Apply the diff using the track's apply method
                     target_track.apply(diff_obj)
+                    
+                    # Apply library-specific scaffolding after the diff
+                    self._scaffold_track(target_track, diff_obj)
  
     def merge(self, other_library):
         """
@@ -201,4 +207,31 @@ class DJLibrary(ABC):
         self._write_meta()
 
         return
+    
+    def _scaffold_track(self, track, diff_obj):
+        """
+        Scaffold the track to ensure library consistency.
+        This is called after applying the diff to clean up the track state.
+        
+        Args:
+            track (Track): The track to scaffold
+            diff_obj (DeepDiff): The diff object that was applied
+        """
+        # Default implementation: clean up genre tags
+        if 'genre' in track.tags:
+            track.tags['genre'] = self._clean_genre_list(track.tags['genre'])
+    
+    def _clean_genre_list(self, genre_list):
+        """
+        Split genre strings on commas, remove duplicates, and sort alphabetically.
+        This is inherited by all DJLibrary subclasses.
+        
+        Args:
+            genre_list: List of genre strings
+            
+        Returns:
+            list: Cleaned and sorted genre list
+        """
+        genre_split = [g.strip() for genre in genre_list for g in genre.split(',')]
+        return sorted(set(genre_split))
    
