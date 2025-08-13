@@ -101,6 +101,7 @@ class DJLibrary(ABC):
         commit_file = self._datetime_to_commit_file(datetime.now())
         filepath = os.path.join(djtag_dir, commit_file)
         print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type} to {commit_file}")
+        print(self.diff())
         with open(filepath, 'wb') as f:
             pickle.dump(self, f) 
         self.commits.append(datetime.now())

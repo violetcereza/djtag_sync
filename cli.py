@@ -63,7 +63,6 @@ def main():
     # Always commit before doing anything else
     if args.command in ['commit', 'merge', 'overwrite']:
         for source in libraries:
-            print(source.diff())
             source.commit()
 
     if args.command == 'merge':
