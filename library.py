@@ -179,27 +179,27 @@ class DJLibrary(ABC):
             print(f"{Style.DIM}No commits on {other_library.library_type} since last merge.{Style.RESET_ALL}")
             return
 
-        prev_commit = None
+        # Load the last commit before the filtered commits
+        prev_commit = other_library.load_commit(
+            max((dt for dt in other_library.commits if dt < filtered_commits[0]), default=None)
+        )
         for dt in filtered_commits:
             commit_obj = other_library.load_commit(dt)
-            if prev_commit is not None:
-                diff = DJLibraryDiff(prev_commit, commit_obj)
-                if diff:
-                    print(f"{Style.DIM}Applying diff from {dt}{Style.RESET_ALL}")
-                    print(diff)
-                    self.apply(diff)
+            diff = DJLibraryDiff(prev_commit, commit_obj)
+            if diff:
+                print(f"{Style.DIM}Applying diff from {dt}{Style.RESET_ALL}")
+                print(diff)
+                self.apply(diff)
             prev_commit = commit_obj
 
         if not self.diff():
             print(f"{Style.DIM}No updates needed to {self.library_type} from {other_library.library_type}.{Style.RESET_ALL}")
-            return
-
-        # After applying all deltas, print the diff between the most recent commit and self.tracks
-        print("Diff after applying deltas:")
-        print(self.diff())
-
-        self.writeLibrary()
-        self.commit()
+        else:
+            # After applying all deltas, print the diff between the most recent commit and self.tracks
+            print("Diff after applying deltas:")
+            print(self.diff())
+            self.writeLibrary()
+            self.commit()
 
         if other_type not in self.meta:
             self.meta[other_type] = {}
