@@ -9,40 +9,37 @@ import os
 import argparse
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Sync music tags between ID3 & Swinsian libraries.')
+    parser = argparse.ArgumentParser(description='Sync music tags between ID3 & Swinsian libraries.')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
     DEFAULT_SWINSIAN_DB = '~/Library/Application Support/Swinsian/Library.sqlite'
     DEFAULT_MUSIC_FOLDER = '~/Dropbox/Cloud Music/Testing DJ Library'
-    SOURCES_CHOICES = ['id3', 'swinsian']
 
-    # Fetch command
-    fetch_parser = subparsers.add_parser('fetch', help='Pull and commit tags from specified library sources')
-    fetch_parser.add_argument('sources', nargs='*', 
-        help=f'Library sources to fetch from ({", ".join(SOURCES_CHOICES)}). If none specified, fetches all sources.')
-    fetch_parser.add_argument('--swinsian-db', help='Path to Swinsian database', 
-        default=DEFAULT_SWINSIAN_DB)
-    fetch_parser.add_argument('--music-folder', help='Path to the music folder', 
-        default=DEFAULT_MUSIC_FOLDER)
+    # Helper to add common arguments to subparsers
+    def add_common_args(parser):
+        parser.add_argument('--swinsian-db', help='Path to Swinsian database', 
+            default=DEFAULT_SWINSIAN_DB)
+        parser.add_argument('--music-folder', help='Path to the music folder', 
+            default=DEFAULT_MUSIC_FOLDER)
+    SOURCES_CHOICES = ['swinsian', 'id3']
+
+    # Commit command
+    commit_parser = subparsers.add_parser('commit', help='Pull and commit tags from specified library sources')
+    commit_parser.add_argument('sources', nargs='*', 
+        help=f'Library sources to fetch from ({", ".join(SOURCES_CHOICES)}). If none specified, commits all sources.')
+    add_common_args(commit_parser)
     
-    # Merge command (stub)
-    merge_parser = subparsers.add_parser('merge', help='Merge ID3 and Swinsian branches (not implemented)')
-    merge_parser.add_argument('sources', nargs='+', choices=SOURCES_CHOICES, 
-        help=f'Library sources to merge ({", ".join(SOURCES_CHOICES)})')
-    merge_parser.add_argument('--swinsian-db', help='Path to Swinsian database', 
-        default=DEFAULT_SWINSIAN_DB)
-    merge_parser.add_argument('--music-folder', help='Path to the music folder', 
-        default=DEFAULT_MUSIC_FOLDER)
+    # Merge command
+    merge_parser = subparsers.add_parser('merge', help='Merge changes between library sources')
+    merge_parser.add_argument('sources', nargs='*', 
+        help=f'Library sources to merge ({", ".join(SOURCES_CHOICES)}). If none specified, merges all sources.')
+    add_common_args(merge_parser)
     
-    # Push command
-    push_parser = subparsers.add_parser('push', help='Write tags back to libraries')
-    push_parser.add_argument('sources', nargs='+', choices=SOURCES_CHOICES, 
+    # Overwrite command
+    overwrite_parser = subparsers.add_parser('overwrite', help='Overwrite tags in one library with tags from another')
+    overwrite_parser.add_argument('sources', nargs=2, 
         help=f'Library sources to push to ({", ".join(SOURCES_CHOICES)})')
-    push_parser.add_argument('--swinsian-db', help='Path to Swinsian database', 
-        default=DEFAULT_SWINSIAN_DB)
-    push_parser.add_argument('--music-folder', help='Path to the music folder', 
-        default=DEFAULT_MUSIC_FOLDER)
+    add_common_args(overwrite_parser)
     
     args = parser.parse_args()
     
@@ -50,26 +47,39 @@ def main():
         parser.print_help()
         return
     
-    library_dir = os.path.expanduser(args.music_folder)
-    djtag_dir = os.path.join(library_dir, '.djtag')
-    if args.command == 'fetch':
-        print(f"Fetch command not implemented yet for sources: {', '.join(args.sources)}")
-    elif args.command == 'merge':
+    if not args.sources:
+        args.sources = SOURCES_CHOICES
 
-        swinsian = SwinsianLibrary(args.music_folder, args.swinsian_db)
-        print(swinsian.diff())
-        swinsian.commit()
+    # Transform the sources array in place to library instances
+    libraries = []
+    for src in args.sources:
+        if src == "swinsian":
+            libraries.append(SwinsianLibrary(args.music_folder, args.swinsian_db))
+        elif src == "id3":
+            libraries.append(ID3Library(args.music_folder))
+        else:
+            raise ValueError(f"Unknown source: {src}")
 
-        id3 = ID3Library(args.music_folder)
-        print(id3.diff())
-        id3.commit()
+    # Always commit before doing anything else
+    if args.command in ['commit', 'merge', 'overwrite']:
+        for source in libraries:
+            print(source.diff())
+            source.commit()
 
-        # Merge the libraries
-        swinsian.merge(id3)
-        # id3.merge(swinsian)
+    if args.command == 'merge':
+        for library_a in libraries:
+            for library_b in libraries:
+                if library_a != library_b:
+                    library_a.merge(library_b)
         
-    elif args.command == 'push':
-        print(f"Push command not implemented yet for sources: {', '.join(args.sources)}")
+    if args.command == 'overwrite':
+        if input(f"Are you sure you want to overwrite {args.sources[0]} with {args.sources[1]}? (y/N): ").strip().lower() != 'y':
+            print("Aborted overwrite.")
+            return
+        
+        libraries[0].tracks.update(libraries[1].tracks)
+        libraries[0].writeLibrary()
+        libraries[0].commit()
 
 if __name__ == '__main__':
     main() 

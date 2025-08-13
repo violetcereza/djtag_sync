@@ -85,15 +85,18 @@ class DJLibraryDiff:
                         change_parts.append(f"{Fore.GREEN}+{change_path}/{added_value}{Style.RESET_ALL}")
             
             # Handle other changes
-            other_changes = []
             if 'dictionary_item_added' in diff:
-                other_changes.append("added other tags")
+                for added_key in diff['dictionary_item_added']:
+                    change_parts.append(f"{Fore.GREEN}+{added_key}{Style.RESET_ALL}")
             if 'dictionary_item_removed' in diff:
-                other_changes.append("removed other tags")
+                for removed_key in diff['dictionary_item_removed']:
+                    change_parts.append(f"{Fore.RED}-{removed_key}{Style.RESET_ALL}")
             if 'values_changed' in diff:
-                other_changes.append("modified other tags")
-            if other_changes:
-                change_parts.append(f"~{', '.join(other_changes)}")
+                for changed_key, changed_value in diff['values_changed'].items():
+                    if changed_key == 'root':
+                        change_parts.append(f"{Fore.YELLOW}~replaced all tags{Style.RESET_ALL}")
+                    else:
+                        change_parts.append(f"{Fore.YELLOW}~{changed_key}/{changed_value}{Style.RESET_ALL}")
             
             lines.append(f"  ♫ {track_str} {Style.DIM}//{Style.RESET_ALL} {' '.join(change_parts)}")
         

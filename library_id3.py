@@ -48,8 +48,8 @@ class ID3Library(DJLibrary):
         if not os.path.isfile(abs_file_path):
             print(f"File does not exist: {file_path}")
             return
-        if not os.path.commonpath([abs_file_path, self.library_dir]) == self.library_dir:
-            print(f"Skipping {file_path} (not in library_dir)")
+        if not os.path.commonpath([abs_file_path, self.music_folder]) == self.music_folder:
+            print(f"Skipping {file_path} (not in music_folder)")
             return
         genre_str = track.tags.get('genre', '')
         if not isinstance(genre_str, str):
@@ -68,7 +68,7 @@ class ID3Library(DJLibrary):
         id3_tags['genre'] = genre_str
         try:
             id3_tags.save()
-            print(f"Updated genre for {file_path} -> {genre_str}")
+            print(f"{Fore.GREEN}Updated genre{Style.RESET_ALL}{Style.DIM} for {file_path} -> {genre_str}{Style.RESET_ALL}")
         except Exception as e:
             print(f"Failed to save ID3 for {file_path}: {e}")
     

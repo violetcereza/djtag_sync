@@ -96,12 +96,11 @@ class DJLibrary(ABC):
             print(f"{Style.DIM}Skipping redundant commit for {self.library_type}.{Style.RESET_ALL}")
             return
         
-        print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type}...")
         djtag_dir = os.path.join(self.music_folder, '.djtag', self.library_type)
         os.makedirs(djtag_dir, exist_ok=True)
         commit_file = self._datetime_to_commit_file(datetime.now())
         filepath = os.path.join(djtag_dir, commit_file)
-        print(f"Committing to {commit_file}")
+        print(f"{Fore.CYAN}Committing{Style.RESET_ALL} {self.library_type} to {commit_file}")
         with open(filepath, 'wb') as f:
             pickle.dump(self, f) 
         self.commits.append(datetime.now())
@@ -160,7 +159,7 @@ class DJLibrary(ABC):
 
         print(
             f"{Fore.CYAN}Merging{Style.RESET_ALL} changes from "
-            f"{other_library.library_type} to {self.library_type} since last merge at {last_merged_dt}"
+            f"{other_library.library_type} to {self.library_type} {Style.DIM}since last merge at {last_merged_dt}{Style.RESET_ALL}"
         )
         # Filter commits after last_merged
         filtered_commits = [
@@ -179,6 +178,7 @@ class DJLibrary(ABC):
             if prev_commit is not None:
                 diff = DJLibraryDiff(prev_commit, commit_obj)
                 if diff:
+                    print(f"{Style.DIM}Applying diff from {dt}{Style.RESET_ALL}")
                     print(diff)
                     self.apply(diff)
             prev_commit = commit_obj
