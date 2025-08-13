@@ -86,7 +86,7 @@ class SwinsianLibrary(DJLibrary):
         
         # SwinsianLibrary only cares about genre tags
         # Remove all other tags to maintain consistency
-        genre_tags = track.tags.get('genre', [])
+        genre_tags = track.tags.get('genre', set())
         track.tags.clear()
         track.tags['genre'] = genre_tags
     
@@ -121,7 +121,7 @@ class SwinsianLibrary(DJLibrary):
                     # track is not in the swinsian library, so we don't need to update it
                     tracks_skipped += 1
                     continue
-                genres = set(track.tags.get('genre', []))
+                genres = track.tags.get('genre', set())
                 # Update the genre field in the tracks table with a comma-separated version of the genres
                 genre_str = ', '.join(sorted(genres))
                 cursor.execute("UPDATE track SET genre = ? WHERE track_id = ?", (genre_str, track_id))

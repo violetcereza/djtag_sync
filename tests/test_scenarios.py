@@ -19,21 +19,21 @@ class TestLibraryScenarios:
         """Test comprehensive scenarios covering main functionality."""
         print("=== Comprehensive Library Scenarios ===")
         
-        # Scenario 1: Basic genre changes
+                # Scenario 1: Basic genre changes
         print("\n--- Scenario 1: Genre Changes ---")
         id3_library = MockDJLibrary("ID3Library", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
-        
+    
         swinsian_library = MockDJLibrary("SwinsianLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
         
@@ -45,7 +45,7 @@ class TestLibraryScenarios:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Alternative', 'Rock']
+            'genre': {'Alternative', 'Rock'}
         })
         swinsian_library.tracks["/music/song1.mp3"] = modified_track
         swinsian_library.commit()
@@ -55,7 +55,7 @@ class TestLibraryScenarios:
         
         # Verify changes
         track = id3_library.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Alternative', 'Rock']
+        assert track.tags['genre'] == {'Alternative', 'Rock'}
         print(f"✓ Genre change applied: {track.tags['genre']}")
         
         # Scenario 2: Complex tag changes
@@ -64,16 +64,16 @@ class TestLibraryScenarios:
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock'],
+                'genre': {'Rock'},
                 'year': ['2020']
             })
         })
-        
+    
         library_b = MockDJLibrary("SwinsianLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock'],
+                'genre': {'Rock'},
                 'year': ['2020']
             })
         })
@@ -86,7 +86,7 @@ class TestLibraryScenarios:
         modified_track = Track("/music/song1.mp3", {
             'title': ['Song 1'],
             'artist': ['Artist 1'],
-            'genre': ['Alternative', 'Rock'],
+            'genre': {'Alternative', 'Rock'},
             'year': ['2021'],
             'bpm': ['120']
         })
@@ -98,7 +98,7 @@ class TestLibraryScenarios:
         
         # Verify complex changes
         track = library_a.tracks["/music/song1.mp3"]
-        assert track.tags['genre'] == ['Alternative', 'Rock']
+        assert track.tags['genre'] == {'Alternative', 'Rock'}
         assert track.tags['year'] == ['2021']
         assert track.tags['bpm'] == ['120']
         print(f"✓ Complex changes applied: genre={track.tags['genre']}, year={track.tags['year']}, bpm={track.tags['bpm']}")
@@ -109,20 +109,20 @@ class TestLibraryScenarios:
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
-        
+    
         different_library = MockDJLibrary("SwinsianLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Alternative', 'Rock']
+                'genre': {'Alternative', 'Rock'}
             }),
             "/music/song2.mp3": Track("/music/song2.mp3", {
                 'title': ['Song 2'],
                 'artist': ['Artist 2'],
-                'genre': ['Pop']
+                'genre': {'Pop'}
             })
         })
         

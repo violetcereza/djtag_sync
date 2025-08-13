@@ -63,6 +63,9 @@ class MockDJLibrary(DJLibrary):
         Load the commit from the commit_libraries dict.
         Override parent method to use in-memory storage.
         """
+        if commit_datetime is None:
+            # Return an empty library for None datetime
+            return MockDJLibrary(self.library_type, self.music_folder, {})
         if commit_datetime not in self.commit_libraries:
             raise ValueError(f"Commit {commit_datetime} not found")
         return self.commit_libraries[commit_datetime]

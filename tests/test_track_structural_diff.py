@@ -213,15 +213,15 @@ class TestTrackStructuralDiff:
         # Create libraries with different structures
         library1 = TestLibrary("TestLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
-        
+    
         library2 = TestLibrary("TestLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
-                'genre': ['Rock', 'Alternative']
+                'genre': {'Rock', 'Alternative'}
             })
         })
         
@@ -242,7 +242,7 @@ class TestTrackStructuralDiff:
         assert 'genre' in track.tags
         assert 'title' not in track.tags
         assert 'artist' not in track.tags
-        assert track.tags['genre'] == ['Alternative', 'Rock']  # Library scaffolding provides alphabetical order
+        assert track.tags['genre'] == {'Alternative', 'Rock'}  # Library scaffolding provides alphabetical order
         
         print("✓ Library-level scaffolding correctly maintains consistency")
         

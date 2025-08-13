@@ -60,45 +60,68 @@ class DJLibraryDiff:
         lines.append(f"{Style.DIM}Library changes ({len(modified)}){Style.RESET_ALL}")
         
         for path, modification in modified.items():
-            track_str = str(modification['old_track'])
-            changes = []
-            
             diff = modification['diff']
             
             # Build the change string in the format: // -<genre removed> +<genre added> ~<other changes>
-            change_parts = []
-            
-            # Handle genre removals
-            if 'iterable_item_removed' in diff:
-                for change_path, removed_value in diff['iterable_item_removed'].items():
-                    if "root['genre']" in change_path:
-                        change_parts.append(f"{Fore.RED}-{removed_value}{Style.RESET_ALL}")
-                    else:
-                        change_parts.append(f"{Fore.RED}-{change_path}/{removed_value}{Style.RESET_ALL}")
+            added = []
+            removed = []
+            changed = []
             
             # Handle genre additions
             if 'iterable_item_added' in diff:
                 for change_path, added_value in diff['iterable_item_added'].items():
                     if "root['genre']" in change_path:
-                        change_parts.append(f"{Fore.GREEN}+{added_value}{Style.RESET_ALL}")
+                        added.append(added_value)
                     else:
-                        change_parts.append(f"{Fore.GREEN}+{change_path}/{added_value}{Style.RESET_ALL}")
-            
+                        added.append(f"{change_path}/{added_value}")
+            # Handle genre removals
+            if 'iterable_item_removed' in diff:
+                for change_path, removed_value in diff['iterable_item_removed'].items():
+                    if "root['genre']" in change_path:
+                        removed.append(removed_value)
+                    else:
+                        removed.append(f"{change_path}/{removed_value}")
+            # Handle genre additions
+            if 'set_item_added' in diff:
+                for change_path in diff['set_item_added']:
+                    # change_path is a string like "root['genre']['test playlist']"
+                    if change_path.startswith("root['genre']"):
+                        # Extract the genre name between the last pair of brackets
+                        # e.g., "root['genre']['test playlist']" -> "test playlist"
+                        genre = change_path.split("['genre']")[-1][2:-2]
+                        added.append(genre)
+                    else:
+                        added.append(change_path)
+            # Handle genre removals
+            if 'set_item_removed' in diff:
+                for change_path in diff['set_item_removed']:
+                    if change_path.startswith("root['genre']"):
+                        genre = change_path.split("['genre']")[-1][2:-2]
+                        removed.append(genre)
+                    else:
+                        removed.append(change_path)
+
             # Handle other changes
             if 'dictionary_item_added' in diff:
                 for added_key in diff['dictionary_item_added']:
-                    change_parts.append(f"{Fore.GREEN}+{added_key}{Style.RESET_ALL}")
+                    added.append(added_key)
             if 'dictionary_item_removed' in diff:
                 for removed_key in diff['dictionary_item_removed']:
-                    change_parts.append(f"{Fore.RED}-{removed_key}{Style.RESET_ALL}")
+                    removed.append(removed_key)
             if 'values_changed' in diff:
                 for changed_key, changed_value in diff['values_changed'].items():
                     if changed_key == 'root':
-                        change_parts.append(f"{Fore.YELLOW}~replaced all tags{Style.RESET_ALL}")
+                        changed.append("replaced all tags")
                     else:
-                        change_parts.append(f"{Fore.YELLOW}~{changed_key}/{changed_value}{Style.RESET_ALL}")
+                        changed.append(f"{changed_key}/{changed_value}")
             
-            lines.append(f"  ♫ {track_str} {Style.DIM}//{Style.RESET_ALL} {' '.join(change_parts)}")
+            track_str = str(modification['old_track'])
+            change_str = (
+                Fore.GREEN + ' '.join(f'+{item}' for item in added) + Style.RESET_ALL +
+                Fore.RED + ' '.join(f'-{item}' for item in removed) + Style.RESET_ALL +
+                Fore.YELLOW + ' '.join(f'~{item}' for item in changed) + Style.RESET_ALL
+            )
+            lines.append(f"  ♫ {track_str} {Style.DIM}//{Style.RESET_ALL} {change_str}")
         
         return "\n".join(lines)
     

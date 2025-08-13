@@ -19,20 +19,20 @@ class TestMergeConsistency:
         """Test that merge only applies relevant tags to prevent inconsistent states."""
         print("=== Testing Merge Consistency Fix ===")
         
-        # Create ID3 library with full tag structure (like real ID3 files)
+                # Create ID3 library with full tag structure (like real ID3 files)
         id3_library = MockDJLibrary("ID3Library", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
                 'title': ['Song 1'],
                 'artist': ['Artist 1'],
                 'album': ['Album 1'],
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
-        
+    
         # Create Swinsian library with only genre tags (like real Swinsian DB)
         swinsian_library = MockDJLibrary("SwinsianLibrary", "/music", {
             "/music/song1.mp3": Track("/music/song1.mp3", {
-                'genre': ['Rock']
+                'genre': {'Rock'}
             })
         })
         
@@ -48,7 +48,7 @@ class TestMergeConsistency:
             'title': ['Song 1'],
             'artist': ['Artist 1'],
             'album': ['Album 1'],
-            'genre': ['Alternative', 'Rock']  # Added 'Alternative'
+            'genre': {'Alternative', 'Rock'}  # Added 'Alternative'
         })
         id3_library.tracks["/music/song1.mp3"] = modified_track
         id3_library.commit()
@@ -67,7 +67,7 @@ class TestMergeConsistency:
         assert 'title' not in swinsian_track.tags  # Should not have title
         assert 'artist' not in swinsian_track.tags  # Should not have artist
         assert 'album' not in swinsian_track.tags   # Should not have album
-        assert swinsian_track.tags['genre'] == ['Alternative', 'Rock']  # Should have new genre
+        assert swinsian_track.tags['genre'] == {'Alternative', 'Rock'}  # Should have new genre
         
         print("✓ Swinsian library only contains genre tags (consistent with its structure)")
         
@@ -92,7 +92,7 @@ class TestMergeConsistency:
         assert 'artist' in id3_track.tags  # Should still have artist
         assert 'album' in id3_track.tags   # Should still have album
         assert 'genre' in id3_track.tags   # Should have genre
-        assert id3_track.tags['genre'] == ['Alternative', 'Jazz', 'Rock']  # Should have all genres
+        assert id3_track.tags['genre'] == {'Alternative', 'Jazz', 'Rock'}  # Should have all genres
         
         print("✓ ID3 library maintains full tag structure with updated genres")
         

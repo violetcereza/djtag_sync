@@ -233,5 +233,5 @@ class DJLibrary(ABC):
             list: Cleaned and sorted genre list
         """
         genre_split = [g.strip() for genre in genre_list for g in genre.split(',')]
-        return sorted(set(genre_split))
+        return set(genre_split)
    

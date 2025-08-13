@@ -49,7 +49,7 @@ class ID3Library(DJLibrary):
         
         # Ensure genre tag exists for ID3Library (even if empty)
         if 'genre' not in track.tags:
-            track.tags['genre'] = []
+            track.tags['genre'] = set()
     
     def write(self, track):
         """
@@ -67,9 +67,13 @@ class ID3Library(DJLibrary):
         if not os.path.commonpath([abs_file_path, self.music_folder]) == self.music_folder:
             print(f"Skipping {file_path} (not in music_folder)")
             return
-        genre_str = track.tags.get('genre', '')
-        if not isinstance(genre_str, str):
-            genre_str = ', '.join(genre_str) if genre_str else ''
+        
+        genre_tags = track.tags.get('genre', set())
+        if isinstance(genre_tags, set):
+            genre_str = ', '.join(sorted(genre_tags)) if genre_tags else ''
+        else:
+            genre_str = str(genre_tags) if genre_tags else ''
+
         try:
             id3_tags = EasyID3(abs_file_path)
         except Exception:
@@ -81,10 +85,12 @@ class ID3Library(DJLibrary):
             except Exception as e:
                 print(f"Could not open or create ID3 for {file_path}: {e}")
                 return
+
         id3_tags['genre'] = genre_str
+
         try:
             id3_tags.save()
-            print(f"{Fore.GREEN}Updated genre{Style.RESET_ALL}{Style.DIM} for {file_path} -> {genre_str}{Style.RESET_ALL}")
+            # print(f"{Fore.GREEN}Updated genre{Style.RESET_ALL}{Style.DIM} for {file_path} -> {genre_str}{Style.RESET_ALL}")
         except Exception as e:
             print(f"Failed to save ID3 for {file_path}: {e}")
     
